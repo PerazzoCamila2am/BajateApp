@@ -1,8 +1,11 @@
+import { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 const alertDistances = [300, 500, 800];
 
 export default function HomeScreen() {
+  const [selectedDistance, setSelectedDistance] = useState(300);
+
   return (
     <View style={styles.screen}>
       <View style={styles.header}>
@@ -20,12 +23,34 @@ export default function HomeScreen() {
         <Text style={styles.label}>Avisarme cuando falten</Text>
 
         <View style={styles.optionsRow}>
-          {alertDistances.map((distance) => (
-            <Pressable key={distance} style={styles.optionButton}>
-              <Text style={styles.optionButtonText}>{distance} m</Text>
-            </Pressable>
-          ))}
+          {alertDistances.map((distance) => {
+            const isSelected = selectedDistance === distance;
+
+            return (
+              <Pressable
+                key={distance}
+                style={[
+                  styles.optionButton,
+                  isSelected && styles.optionButtonSelected,
+                ]}
+                onPress={() => setSelectedDistance(distance)}
+              >
+                <Text
+                  style={[
+                    styles.optionButtonText,
+                    isSelected && styles.optionButtonTextSelected,
+                  ]}
+                >
+                  {distance} m
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
+
+        <Text style={styles.selectedText}>
+          Distancia elegida: {selectedDistance} m
+        </Text>
       </View>
 
       <View style={styles.actions}>
@@ -106,10 +131,21 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
   },
+  optionButtonSelected: {
+    backgroundColor: '#5DE2A3',
+  },
   optionButtonText: {
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
+  },
+  optionButtonTextSelected: {
+    color: '#101820',
+  },
+  selectedText: {
+    color: '#B8C2CC',
+    fontSize: 14,
+    marginTop: 12,
   },
   actions: {
     gap: 12,
