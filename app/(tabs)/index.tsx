@@ -1,98 +1,149 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+const alertDistances = [300, 500, 800];
 
 export default function HomeScreen() {
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <View style={styles.screen}>
+      <View style={styles.header}>
+        <Text style={styles.appName}>BajateApp</Text>
+        <Text style={styles.title}>Dormite tranquilo.</Text>
+        <Text style={styles.subtitle}>Te avisamos antes de llegar.</Text>
+      </View>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+      <View style={styles.card}>
+        <Text style={styles.label}>Destino demo</Text>
+        <Text style={styles.destination}>Facultad</Text>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.label}>Avisarme cuando falten</Text>
+
+        <View style={styles.optionsRow}>
+          {alertDistances.map((distance) => (
+            <Pressable key={distance} style={styles.optionButton}>
+              <Text style={styles.optionButtonText}>{distance} m</Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.actions}>
+        <Pressable style={styles.startButton}>
+          <Text style={styles.startButtonText}>Iniciar simulación</Text>
+        </Pressable>
+
+        <Pressable style={styles.stopButton}>
+          <Text style={styles.stopButtonText}>Detener</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.label}>Distancia restante</Text>
+        <Text style={styles.bigNumber}>1200 m</Text>
+      </View>
+
+      <View style={styles.card}>
+        <Text style={styles.label}>Estado</Text>
+        <Text style={styles.status}>Sin viaje activo</Text>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  screen: {
+    flex: 1,
+    backgroundColor: '#101820',
+    padding: 24,
+    justifyContent: 'center',
+    gap: 16,
   },
-  stepContainer: {
-    gap: 8,
+  header: {
     marginBottom: 8,
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  appName: {
+    color: '#5DE2A3',
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 12,
+  },
+  title: {
+    color: '#FFFFFF',
+    fontSize: 34,
+    fontWeight: '800',
+  },
+  subtitle: {
+    color: '#B8C2CC',
+    fontSize: 18,
+    marginTop: 6,
+  },
+  card: {
+    backgroundColor: '#17212B',
+    borderRadius: 22,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#263544',
+  },
+  label: {
+    color: '#8FA1B3',
+    fontSize: 14,
+    marginBottom: 8,
+  },
+  destination: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  optionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  optionButton: {
+    flex: 1,
+    backgroundColor: '#223142',
+    paddingVertical: 14,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  optionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  actions: {
+    gap: 12,
+  },
+  startButton: {
+    backgroundColor: '#5DE2A3',
+    paddingVertical: 17,
+    borderRadius: 18,
+    alignItems: 'center',
+  },
+  startButtonText: {
+    color: '#101820',
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  stopButton: {
+    backgroundColor: '#263544',
+    paddingVertical: 17,
+    borderRadius: 18,
+    alignItems: 'center',
+  },
+  stopButtonText: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '800',
+  },
+  bigNumber: {
+    color: '#FFFFFF',
+    fontSize: 36,
+    fontWeight: '800',
+  },
+  status: {
+    color: '#F6C85F',
+    fontSize: 22,
+    fontWeight: '700',
   },
 });
