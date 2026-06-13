@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, Vibration, View } from 'react-native';
 
 const alertDistances = [300, 500, 800];
 const initialDistance = 1200;
@@ -27,8 +27,9 @@ export default function HomeScreen() {
         const nextDistance = Math.max(currentDistance - simulationStep, 0);
 
         if (nextDistance <= selectedDistance) {
-          setTripStatus('Alarma activada');
-          setIsSimulating(false);
+        setTripStatus('Alarma activada');
+        setIsSimulating(false);
+        Vibration.vibrate([0, 500, 250, 500, 250, 800]);
         } else if (nextDistance <= selectedDistance + 200) {
           setTripStatus('Cerca del destino');
         } else {
