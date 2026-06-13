@@ -8,28 +8,15 @@ import {
   View,
 } from 'react-native';
 
-const alertDistances = [300, 500, 800];
-const stopAlerts = [1, 2, 3];
-const simulationStep = 100;
-
-const demoStops = [
-  { id: 1, name: 'Parada 1', distanceFromStart: 0 },
-  { id: 2, name: 'Parada 2', distanceFromStart: 300 },
-  { id: 3, name: 'Parada 3', distanceFromStart: 600 },
-  { id: 4, name: 'Parada 4', distanceFromStart: 900 },
-  { id: 5, name: 'Facultad', distanceFromStart: 1200 },
-  { id: 6, name: 'Centro', distanceFromStart: 1500 },
-  { id: 7, name: 'Casa', distanceFromStart: 1800 },
-];
-
-type AlertMode = 'distance' | 'stops';
-
-type TripStatus =
-  | 'Sin viaje activo'
-  | 'Simulando viaje'
-  | 'Cerca del destino'
-  | 'Alarma activada'
-  | 'Destino alcanzado';
+import { Card } from '../../components/Card';
+import { OptionButton } from '../../components/OptionButton';
+import {
+  alertDistances,
+  demoStops,
+  simulationStep,
+  stopAlerts,
+} from '../../data/demoStops';
+import { AlertMode, TripStatus } from '../../types/trip';
 
 export default function HomeScreen() {
   const [alertMode, setAlertMode] = useState<AlertMode>('distance');
@@ -197,151 +184,85 @@ export default function HomeScreen() {
         </View>
       )}
 
-      <View style={styles.card}>
+      <Card>
         <Text style={styles.label}>Tipo de aviso</Text>
 
         <View style={styles.optionsRow}>
-          <Pressable
-            style={[
-              styles.optionButton,
-              alertMode === 'distance' && styles.optionButtonSelected,
-            ]}
+          <OptionButton
+            label="Distancia"
+            selected={alertMode === 'distance'}
             onPress={() => setAlertMode('distance')}
-          >
-            <Text
-              style={[
-                styles.optionButtonText,
-                alertMode === 'distance' && styles.optionButtonTextSelected,
-              ]}
-            >
-              Distancia
-            </Text>
-          </Pressable>
+          />
 
-          <Pressable
-            style={[
-              styles.optionButton,
-              alertMode === 'stops' && styles.optionButtonSelected,
-            ]}
+          <OptionButton
+            label="Paradas"
+            selected={alertMode === 'stops'}
             onPress={() => setAlertMode('stops')}
-          >
-            <Text
-              style={[
-                styles.optionButtonText,
-                alertMode === 'stops' && styles.optionButtonTextSelected,
-              ]}
-            >
-              Paradas
-            </Text>
-          </Pressable>
+          />
         </View>
-      </View>
+      </Card>
 
-      <View style={styles.card}>
+      <Card>
         <Text style={styles.label}>Destino demo</Text>
 
         <View style={styles.wrapRow}>
-          {demoStops.slice(4).map((stop) => {
-            const isSelected = selectedDestinationId === stop.id;
-
-            return (
-              <Pressable
-                key={stop.id}
-                style={[
-                  styles.destinationButton,
-                  isSelected && styles.optionButtonSelected,
-                  isSimulating && styles.optionButtonDisabled,
-                ]}
-                onPress={() => selectDestination(stop.id)}
-              >
-                <Text
-                  style={[
-                    styles.optionButtonText,
-                    isSelected && styles.optionButtonTextSelected,
-                  ]}
-                >
-                  {stop.name}
-                </Text>
-              </Pressable>
-            );
-          })}
+          {demoStops.slice(4).map((stop) => (
+            <OptionButton
+              key={stop.id}
+              label={stop.name}
+              selected={selectedDestinationId === stop.id}
+              onPress={() => selectDestination(stop.id)}
+              disabled={isSimulating}
+              compact
+            />
+          ))}
         </View>
 
         <Text style={styles.selectedText}>
           Destino elegido: {selectedDestination.name} · {destinationDistance} m
         </Text>
-      </View>
+      </Card>
 
       {alertMode === 'distance' && (
-        <View style={styles.card}>
+        <Card>
           <Text style={styles.label}>Avisarme cuando falten</Text>
 
           <View style={styles.optionsRow}>
-            {alertDistances.map((distance) => {
-              const isSelected = selectedDistance === distance;
-
-              return (
-                <Pressable
-                  key={distance}
-                  style={[
-                    styles.optionButton,
-                    isSelected && styles.optionButtonSelected,
-                  ]}
-                  onPress={() => setSelectedDistance(distance)}
-                >
-                  <Text
-                    style={[
-                      styles.optionButtonText,
-                      isSelected && styles.optionButtonTextSelected,
-                    ]}
-                  >
-                    {distance} m
-                  </Text>
-                </Pressable>
-              );
-            })}
+            {alertDistances.map((distance) => (
+              <OptionButton
+                key={distance}
+                label={`${distance} m`}
+                selected={selectedDistance === distance}
+                onPress={() => setSelectedDistance(distance)}
+              />
+            ))}
           </View>
 
           <Text style={styles.selectedText}>
             Distancia elegida: {selectedDistance} m
           </Text>
-        </View>
+        </Card>
       )}
 
       {alertMode === 'stops' && (
-        <View style={styles.card}>
+        <Card>
           <Text style={styles.label}>Avisarme antes de llegar</Text>
 
           <View style={styles.optionsRow}>
-            {stopAlerts.map((amount) => {
-              const isSelected = selectedStopAlert === amount;
-
-              return (
-                <Pressable
-                  key={amount}
-                  style={[
-                    styles.optionButton,
-                    isSelected && styles.optionButtonSelected,
-                  ]}
-                  onPress={() => setSelectedStopAlert(amount)}
-                >
-                  <Text
-                    style={[
-                      styles.optionButtonText,
-                      isSelected && styles.optionButtonTextSelected,
-                    ]}
-                  >
-                    {amount} parada{amount > 1 ? 's' : ''}
-                  </Text>
-                </Pressable>
-              );
-            })}
+            {stopAlerts.map((amount) => (
+              <OptionButton
+                key={amount}
+                label={`${amount} parada${amount > 1 ? 's' : ''}`}
+                selected={selectedStopAlert === amount}
+                onPress={() => setSelectedStopAlert(amount)}
+              />
+            ))}
           </View>
 
           <Text style={styles.selectedText}>
             La alarma sonará en: {alertStop.name}
           </Text>
-        </View>
+        </Card>
       )}
 
       <View style={styles.actions}>
@@ -363,7 +284,7 @@ export default function HomeScreen() {
         </Pressable>
       </View>
 
-      <View style={styles.card}>
+      <Card>
         <View style={styles.rowBetween}>
           <Text style={styles.label}>Avance del viaje</Text>
           <Text style={styles.progressText}>{progressPercent}%</Text>
@@ -373,21 +294,19 @@ export default function HomeScreen() {
         <Text style={styles.selectedText}>Restantes hasta destino</Text>
 
         <View style={styles.progressBarBackground}>
-          <View
-            style={[styles.progressBarFill, { width: `${progressPercent}%` }]}
-          />
+          <View style={[styles.progressBarFill, { width: `${progressPercent}%` }]} />
         </View>
-      </View>
+      </Card>
 
-      <View style={styles.card}>
+      <Card>
         <Text style={styles.label}>Parada actual aproximada</Text>
         <Text style={styles.stopName}>{currentStop.name}</Text>
         <Text style={styles.selectedText}>
           Recorridos: {currentDistanceFromStart} m
         </Text>
-      </View>
+      </Card>
 
-      <View style={styles.card}>
+      <Card>
         <Text style={styles.label}>Estado</Text>
         <Text
           style={[
@@ -399,9 +318,9 @@ export default function HomeScreen() {
           {tripStatus}
         </Text>
         <Text style={styles.statusMessage}>{getStatusMessage()}</Text>
-      </View>
+      </Card>
 
-      <View style={styles.card}>
+      <Card>
         <Text style={styles.label}>Recorrido demo</Text>
 
         {demoStops.map((stop, index) => {
@@ -422,7 +341,7 @@ export default function HomeScreen() {
             </View>
           );
         })}
-      </View>
+      </Card>
     </ScrollView>
   );
 }
@@ -456,13 +375,6 @@ const styles = StyleSheet.create({
     color: '#B8C2CC',
     fontSize: 17,
     marginTop: 5,
-  },
-  card: {
-    backgroundColor: '#17212B',
-    borderRadius: 22,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#263544',
   },
   alarmCard: {
     backgroundColor: '#3A1F1F',
@@ -500,34 +412,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
-  },
-  optionButton: {
-    flex: 1,
-    backgroundColor: '#223142',
-    paddingVertical: 13,
-    borderRadius: 16,
-    alignItems: 'center',
-  },
-  destinationButton: {
-    backgroundColor: '#223142',
-    paddingVertical: 13,
-    paddingHorizontal: 18,
-    borderRadius: 16,
-    alignItems: 'center',
-  },
-  optionButtonSelected: {
-    backgroundColor: '#5DE2A3',
-  },
-  optionButtonDisabled: {
-    opacity: 0.5,
-  },
-  optionButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  optionButtonTextSelected: {
-    color: '#101820',
   },
   selectedText: {
     color: '#B8C2CC',
