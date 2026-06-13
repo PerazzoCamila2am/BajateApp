@@ -1,10 +1,58 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 const alertDistances = [300, 500, 800];
+const initialDistance = 1200;
+const simulationStep = 100;
+
+type TripStatus =
+  | 'Sin viaje activo'
+  | 'Simulando viaje'
+  | 'Cerca del destino'
+  | 'Alarma activada';
 
 export default function HomeScreen() {
   const [selectedDistance, setSelectedDistance] = useState(300);
+  const [remainingDistance, setRemainingDistance] = useState(initialDistance);
+  const [isSimulating, setIsSimulating] = useState(false);
+  const [tripStatus, setTripStatus] = useState<TripStatus>('Sin viaje activo');
+
+  useEffect(() => {
+    if (!isSimulating) {
+      return;
+    }
+
+    const intervalId = setInterval(() => {
+      setRemainingDistance((currentDistance) => {
+        const nextDistance = Math.max(currentDistance - simulationStep, 0);
+
+        if (nextDistance <= selectedDistance) {
+          setTripStatus('Alarma activada');
+          setIsSimulating(false);
+        } else if (nextDistance <= selectedDistance + 200) {
+          setTripStatus('Cerca del destino');
+        } else {
+          setTripStatus('Simulando viaje');
+        }
+
+        return nextDistance;
+      });
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [isSimulating, selectedDistance]);
+
+  function startSimulation() {
+    setRemainingDistance(initialDistance);
+    setTripStatus('Simulando viaje');
+    setIsSimulating(true);
+  }
+
+  function stopSimulation() {
+    setIsSimulating(false);
+    setRemainingDistance(initialDistance);
+    setTripStatus('Sin viaje activo');
+  }
 
   return (
     <View style={styles.screen}>
@@ -54,23 +102,23 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.actions}>
-        <Pressable style={styles.startButton}>
+        <Pressable style={styles.startButton} onPress={startSimulation}>
           <Text style={styles.startButtonText}>Iniciar simulación</Text>
         </Pressable>
 
-        <Pressable style={styles.stopButton}>
+        <Pressable style={styles.stopButton} onPress={stopSimulation}>
           <Text style={styles.stopButtonText}>Detener</Text>
         </Pressable>
       </View>
 
       <View style={styles.card}>
         <Text style={styles.label}>Distancia restante</Text>
-        <Text style={styles.bigNumber}>1200 m</Text>
+        <Text style={styles.bigNumber}>{remainingDistance} m</Text>
       </View>
 
       <View style={styles.card}>
         <Text style={styles.label}>Estado</Text>
-        <Text style={styles.status}>Sin viaje activo</Text>
+        <Text style={styles.status}>{tripStatus}</Text>
       </View>
     </View>
   );
