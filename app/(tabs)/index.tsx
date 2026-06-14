@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useAudioPlayer } from 'expo-audio';
 import {
   Pressable,
   ScrollView,
@@ -18,7 +19,11 @@ import {
 } from '../../data/demoStops';
 import { AlertMode, TripStatus } from '../../types/trip';
 
+const alarmSound = require('../../assets/sounds/alarm.mp3');
+
 export default function HomeScreen() {
+  const alarmPlayer = useAudioPlayer(alarmSound);
+
   const [alertMode, setAlertMode] = useState<AlertMode>('distance');
   const [selectedDestinationId, setSelectedDestinationId] = useState(5);
   const [selectedDistance, setSelectedDistance] = useState(300);
@@ -98,10 +103,14 @@ export default function HomeScreen() {
 
         if (reachedDistanceAlert || reachedStopAlert) {
           setTripStatus('Alarma activada');
-          setIsSimulating(false);
+           setIsSimulating(false);
+
           Vibration.vibrate([0, 500, 250, 500, 250, 800]);
+
+           alarmPlayer.seekTo(0);
+          alarmPlayer.play();
         } else if (nextRemainingDistance <= selectedDistance + 200) {
-          setTripStatus('Cerca del destino');
+         setTripStatus('Cerca del destino');
         } else if (nextDistance >= destinationDistance) {
           setTripStatus('Destino alcanzado');
           setIsSimulating(false);
@@ -114,13 +123,16 @@ export default function HomeScreen() {
     }, 1000);
 
     return () => clearInterval(intervalId);
-  }, [
+    }, [
+    alarmPlayer,
     alertMode,
     alertStop.distanceFromStart,
     destinationDistance,
     isSimulating,
     selectedDistance,
   ]);
+
+  
 
   function selectDestination(destinationId: number) {
     if (isSimulating) {
@@ -137,6 +149,9 @@ export default function HomeScreen() {
     setTripStatus('Simulando viaje');
     setIsSimulating(true);
     Vibration.cancel();
+
+    alarmPlayer.pause();
+    alarmPlayer.seekTo(0);
   }
 
   function stopSimulation() {
@@ -144,6 +159,9 @@ export default function HomeScreen() {
     setCurrentDistanceFromStart(0);
     setTripStatus('Sin viaje activo');
     Vibration.cancel();
+
+    alarmPlayer.pause();
+    alarmPlayer.seekTo(0);
   }
 
   function getStatusMessage() {
