@@ -1,10 +1,10 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAudioPlayer } from "expo-audio";
-import { useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from 'expo-router';
 import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   Vibration,
   View,
@@ -21,7 +21,6 @@ import {
 import {
   defaultAlarmSettings,
   loadAlarmSettings,
-  saveAlarmSettings,
 } from "../../storage/alarmSettings";
 import {
   loadTripPreferences,
@@ -60,7 +59,6 @@ export default function HomeScreen() {
 
   const [alarmSettings, setAlarmSettings] =
     useState<AlarmSettings>(defaultAlarmSettings);
-  const [hasLoadedAlarmSettings, setHasLoadedAlarmSettings] = useState(false);
 
   const selectedDestinationIndex = useMemo(() => {
     const foundIndex = demoStops.findIndex(
@@ -162,34 +160,25 @@ export default function HomeScreen() {
     selectedStopAlert,
   ]);
 
-  useEffect(() => {
-    let isMounted = true;
+  useFocusEffect(
+  useCallback(() => {
+    let isActive = true;
 
-    async function loadSavedAlarmSettings() {
+    async function refreshAlarmSettings() {
       const savedSettings = await loadAlarmSettings();
 
-      if (!isMounted) {
-        return;
+      if (isActive) {
+        setAlarmSettings(savedSettings);
       }
-
-      setAlarmSettings(savedSettings);
-      setHasLoadedAlarmSettings(true);
     }
 
-    loadSavedAlarmSettings();
+    refreshAlarmSettings();
 
     return () => {
-      isMounted = false;
+      isActive = false;
     };
-  }, []);
-
-  useEffect(() => {
-    if (!hasLoadedAlarmSettings) {
-      return;
-    }
-
-    saveAlarmSettings(alarmSettings);
-  }, [alarmSettings, hasLoadedAlarmSettings]);
+  }, [])
+);
 
   useEffect(() => {
     if (!isSimulating) {
@@ -282,18 +271,6 @@ export default function HomeScreen() {
     alarmPlayer.seekTo(0);
   }
 
-  function updateAlarmSettings(newSettings: Partial<AlarmSettings>) {
-    setAlarmSettings((currentSettings) => ({
-      ...currentSettings,
-      ...newSettings,
-    }));
-  }
-
-  function selectSimulationSpeed(speed: SimulationSpeed) {
-    updateAlarmSettings({
-      simulationSpeed: speed,
-    });
-  }
 
   function getStatusMessage() {
     if (isAlarmActive && alertMode === "distance") {
@@ -457,67 +434,6 @@ export default function HomeScreen() {
         <Text style={styles.stopName}>{currentStop.name}</Text>
         <Text style={styles.selectedText}>
           Recorridos: {currentDistanceFromStart} m
-        </Text>
-      </Card>
-
-      <Card>
-        <Text style={styles.label}>Configuración de alerta</Text>
-
-        <View style={styles.settingRow}>
-          <View>
-            <Text style={styles.settingTitle}>Sonido</Text>
-            <Text style={styles.settingDescription}>
-              Reproducir alarma al llegar al aviso.
-            </Text>
-          </View>
-
-          <Switch
-            value={alarmSettings.isSoundEnabled}
-            onValueChange={(value) =>
-              updateAlarmSettings({ isSoundEnabled: value })
-            }
-            trackColor={{ false: "#263544", true: "#5DE2A3" }}
-            thumbColor="#FFFFFF"
-          />
-        </View>
-
-        <View style={styles.settingDivider} />
-
-        <View style={styles.settingRow}>
-          <View>
-            <Text style={styles.settingTitle}>Vibración</Text>
-            <Text style={styles.settingDescription}>
-              Vibrar cuando se active la alerta.
-            </Text>
-          </View>
-
-          <Switch
-            value={alarmSettings.isVibrationEnabled}
-            onValueChange={(value) =>
-              updateAlarmSettings({ isVibrationEnabled: value })
-            }
-            trackColor={{ false: "#263544", true: "#5DE2A3" }}
-            thumbColor="#FFFFFF"
-          />
-        </View>
-
-        <View style={styles.settingDivider} />
-
-        <Text style={styles.settingTitle}>Velocidad de simulación</Text>
-
-        <View style={styles.optionsRow}>
-          {simulationSpeedOptions.map((option) => (
-            <OptionButton
-              key={option.value}
-              label={option.label}
-              selected={alarmSettings.simulationSpeed === option.value}
-              onPress={() => selectSimulationSpeed(option.value)}
-            />
-          ))}
-        </View>
-
-        <Text style={styles.selectedText}>
-          Velocidad elegida: {selectedSimulationSpeed.label}
         </Text>
       </Card>
 

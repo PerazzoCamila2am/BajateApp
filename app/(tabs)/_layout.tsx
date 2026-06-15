@@ -32,6 +32,16 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
+        name="settings"
+        options={{
+          title: 'Config',
+          tabBarIcon: ({ focused }) => (
+            <Text style={{ fontSize: 22 }}>{focused ? '⚙️' : '🔔'}</Text>
+          ),
+        }}
+      />
+
+      <Tabs.Screen
         name="explore"
         options={{
           title: 'Guía',
