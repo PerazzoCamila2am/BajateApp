@@ -6,3 +6,10 @@ export type TripStatus =
     | 'Cerca del destino'
     | 'Alarma activada'
     |  'Destino alcanzado';
+
+    export type TripPreferences = {
+        alertMode: AlertMode;
+        selectedDestinationId: number;
+        selectedDistance: number;
+        selectedStopAlert: number;
+    };

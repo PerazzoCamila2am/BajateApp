@@ -17,6 +17,7 @@ import {
   simulationStep,
   stopAlerts,
 } from '../../data/demoStops';
+import { loadTripPreferences, saveTripPreferences } from '../../storage/tripPreferences';
 import { AlertMode, TripStatus } from '../../types/trip';
 
 const alarmSound = require('../../assets/sounds/alarm.mp3');
@@ -31,6 +32,7 @@ export default function HomeScreen() {
   const [currentDistanceFromStart, setCurrentDistanceFromStart] = useState(0);
   const [isSimulating, setIsSimulating] = useState(false);
   const [tripStatus, setTripStatus] = useState<TripStatus>('Sin viaje activo');
+  const [hasLoadedPreferences, setHasLoadedPreferences] = useState(false);
 
   const selectedDestinationIndex = useMemo(() => {
     return demoStops.findIndex((stop) => stop.id === selectedDestinationId);
@@ -75,6 +77,54 @@ export default function HomeScreen() {
 
   const isAlarmActive = tripStatus === 'Alarma activada';
   const isNearDestination = tripStatus === 'Cerca del destino';
+
+  useEffect(() => {
+  let isMounted = true;
+
+  async function loadSavedPreferences() {
+    const preferences = await loadTripPreferences();
+
+    if (!isMounted) {
+      return;
+    }
+
+    if (preferences) {
+      setAlertMode(preferences.alertMode);
+      setSelectedDestinationId(preferences.selectedDestinationId);
+      setSelectedDistance(preferences.selectedDistance);
+      setSelectedStopAlert(preferences.selectedStopAlert);
+      setCurrentDistanceFromStart(0);
+      setTripStatus('Sin viaje activo');
+    }
+
+    setHasLoadedPreferences(true);
+  }
+
+  loadSavedPreferences();
+
+  return () => {
+    isMounted = false;
+  };
+}, []);
+
+useEffect(() => {
+  if (!hasLoadedPreferences) {
+    return;
+  }
+
+  saveTripPreferences({
+    alertMode,
+    selectedDestinationId,
+    selectedDistance,
+    selectedStopAlert,
+  });
+}, [
+  alertMode,
+  hasLoadedPreferences,
+  selectedDestinationId,
+  selectedDistance,
+  selectedStopAlert,
+]);
 
   useEffect(() => {
     if (!isSimulating) {
@@ -190,6 +240,7 @@ export default function HomeScreen() {
         <Text style={styles.appName}>BajateApp</Text>
         <Text style={styles.title}>Dormite tranquilo.</Text>
         <Text style={styles.subtitle}>Te avisamos antes de llegar.</Text>
+        <Text style={styles.savedText}>Tus preferencias se guardan automáticamente.</Text>
       </View>
 
       {isAlarmActive && (
@@ -394,6 +445,12 @@ const styles = StyleSheet.create({
     fontSize: 17,
     marginTop: 5,
   },
+  savedText: {
+  color: '#5DE2A3',
+  fontSize: 13,
+  marginTop: 8,
+  fontWeight: '700',
+},
   alarmCard: {
     backgroundColor: '#3A1F1F',
     borderRadius: 24,
