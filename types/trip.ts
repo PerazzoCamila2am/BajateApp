@@ -13,3 +13,11 @@ export type TripStatus =
         selectedDistance: number;
         selectedStopAlert: number;
     };
+
+    export type SimulationSpeed = 'slow' | 'normal' | 'fast';
+
+    export type AlarmSettings = {
+  isSoundEnabled: boolean;
+  isVibrationEnabled: boolean;
+  simulationSpeed: SimulationSpeed;
+};
