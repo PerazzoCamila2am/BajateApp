@@ -1,50 +1,222 @@
-# Welcome to your Expo app 👋
+# BajateApp 
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+**BajateApp** es una aplicación mobile pensada para personas que viajan en colectivo, tren, micro o transporte público y quieren recibir una alerta antes de llegar a su destino.
 
-## Get started
+La idea principal es simple: configurás dónde te querés bajar, elegís cuándo querés que te avise y la app te alerta antes de pasarte de parada.
 
-1. Install dependencies
+---
 
-   ```bash
-   npm install
-   ```
+##  Estado del proyecto
 
-2. Start the app
+Proyecto en desarrollo.
 
-   ```bash
-   npx expo start
-   ```
+Actualmente funciona como un **MVP con modo simulación**, sin GPS real todavía. Esto permite probar la lógica principal de la app sin tener que viajar realmente.
 
-In the output, you'll find options to open the app in a
+---
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+##  Problema que resuelve
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+Muchas personas se quedan dormidas, se distraen o no conocen bien el recorrido cuando viajan en transporte público.
 
-## Get a fresh project
+BajateApp busca resolver eso con una alerta anticipada basada en:
 
-When you're ready, run:
+* distancia restante hasta el destino;
+* cantidad de paradas antes de llegar;
+* simulación de viaje para probar la experiencia;
+* sonido y vibración al activar la alarma.
 
-```bash
-npm run reset-project
+---
+
+##  Funcionalidades actuales
+
+* Selección de destino demo.
+* Modo de aviso por distancia.
+* Modo de aviso por paradas.
+* Simulación de viaje.
+* Barra de progreso del recorrido.
+* Estado del viaje en tiempo real.
+* Alerta visual cuando se llega al punto configurado.
+* Vibración al activar la alarma.
+* Sonido de alarma.
+* Botón para detener/silenciar la alarma.
+* Configuración de sonido activado/desactivado.
+* Configuración de vibración activada/desactivada.
+* Velocidad de simulación: lenta, normal o rápida.
+* Guardado automático de preferencias con AsyncStorage.
+* Pantalla de guía con explicación del funcionamiento.
+
+---
+
+##  MVP actual
+
+El objetivo del MVP es validar la experiencia principal:
+
+```txt
+Configuro una alerta
+↓
+Inicio una simulación
+↓
+La distancia baja
+↓
+La app detecta el momento correcto
+↓
+Se activa una alarma
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+Todavía no se usan datos reales de transporte ni ubicación GPS en segundo plano.
 
-## Learn more
+---
 
-To learn more about developing your project with Expo, look at the following resources:
+##  Modo simulación
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+El modo simulación permite probar la app sin subirse a un colectivo.
 
-## Join the community
+La app simula un recorrido con paradas demo y va actualizando el avance del viaje. Cuando se cumple la condición configurada, se activa la alarma.
 
-Join our community of developers creating universal apps.
+Ejemplos:
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```txt
+Avisarme cuando falten 300 m
+```
+
+o:
+
+```txt
+Avisarme 2 paradas antes
+```
+
+---
+
+##  Tecnologías utilizadas
+
+* Expo
+* React Native
+* TypeScript
+* Expo Router
+* Expo Audio
+* AsyncStorage
+* React Native Components
+* Git / GitHub
+
+---
+
+##  Estructura principal
+
+```txt
+app/
+  (tabs)/
+    index.tsx       # Pantalla principal del viaje
+    explore.tsx     # Pantalla guía
+    _layout.tsx     # Navegación por tabs
+
+components/
+  Card.tsx          # Card reutilizable
+  OptionButton.tsx  # Botón reutilizable
+
+data/
+  demoStops.ts      # Paradas y datos demo
+
+storage/
+  alarmSettings.ts      # Configuración de alarma
+  tripPreferences.ts    # Preferencias del viaje
+
+types/
+  trip.ts           # Tipos principales del proyecto
+
+assets/
+  sounds/
+    alarm.mp3       # Sonido de alarma
+```
+
+---
+
+## ▶ Cómo correr el proyecto
+
+### 1. Clonar el repositorio
+
+```bash
+git clone <url-del-repositorio>
+```
+
+### 2. Entrar a la carpeta del proyecto
+
+```bash
+cd BajateApp
+```
+
+### 3. Instalar dependencias
+
+```bash
+npm install
+```
+
+### 4. Iniciar Expo
+
+```bash
+npx expo start
+```
+
+Después podés abrir la app con:
+
+* Expo Go en el celular;
+* emulador Android;
+* simulador iOS.
+
+---
+
+##  Roadmap
+
+### MVP 1
+
+* [x] Pantalla principal.
+* [x] Destinos demo.
+* [x] Alarma por distancia.
+* [x] Simulación de viaje.
+* [x] Alerta visual.
+* [x] Vibración.
+* [x] Sonido.
+* [x] Botón para detener alarma.
+
+### MVP 2
+
+* [x] Paradas demo.
+* [x] Aviso 1, 2 o 3 paradas antes.
+* [x] Pantalla guía.
+* [x] Guardado de preferencias.
+* [x] Configuración de sonido, vibración y velocidad.
+
+### Próximas mejoras
+
+* [ ] Separar pantalla de configuración.
+* [ ] Agregar capturas de pantalla al README.
+* [ ] Agregar GPS real básico.
+* [ ] Mostrar ubicación actual.
+* [ ] Agregar mapa demo.
+* [ ] Mostrar recorrido y paradas en mapa.
+* [ ] Integrar notificaciones.
+* [ ] Evaluar datos reales de transporte con GTFS.
+
+---
+
+##  Idea a futuro
+
+A futuro, BajateApp podría usar datos reales de transporte público mediante GTFS.
+
+Con GTFS se podrían cargar:
+
+```txt
+routes.txt      → líneas
+trips.txt       → viajes o sentidos
+stops.txt       → paradas
+stop_times.txt  → orden de paradas
+shapes.txt      → recorrido en mapa
+```
+
+Esto permitiría elegir una línea real, seleccionar una parada destino y recibir una alerta antes de llegar.
+
+---
+
+
+##  Nota
+
+Este proyecto está en etapa inicial y se está desarrollando paso a paso. La prioridad actual es validar la experiencia de usuario antes de integrar GPS real, mapas o datos reales de transporte.
