@@ -32,6 +32,16 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
+        name="location"
+        options={{
+          title: 'GPS',
+          tabBarIcon: ({ focused }) => (
+            <Text style={{ fontSize: 22 }}>{focused ? '📡' : '📍'}</Text>
+          ),
+        }}
+      />
+
+      <Tabs.Screen
         name="settings"
         options={{
           title: 'Config',
@@ -46,7 +56,7 @@ export default function TabLayout() {
         options={{
           title: 'Guía',
           tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: 22 }}>{focused ? '💡' : '📍'}</Text>
+            <Text style={{ fontSize: 22 }}>{focused ? '💡' : '📘'}</Text>
           ),
         }}
       />
