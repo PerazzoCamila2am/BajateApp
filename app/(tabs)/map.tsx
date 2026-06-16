@@ -5,12 +5,14 @@ import MapView, { Marker, Polyline } from 'react-native-maps';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '../../components/Card';
-import { buenosAiresRoutes } from '../../data/transit/buenosAiresRoutes';
+import { loadBuenosAiresRouteDetails } from '../../data/transit/loadBuenosAiresRouteDetails';
 import {
   loadSelectedTransitTrip,
   SelectedTransitTrip,
 } from '../../storage/selectedTransitTrip';
+import { TransitRoute } from '../../types/transit';
 import { calculateDistanceInMeters } from '../../utils/distance';
+import { getTransitTripDetails } from '../../utils/transitTripDetails';
 
 export default function MapScreen() {
   const mapRef = useRef<MapView | null>(null);
@@ -18,6 +20,7 @@ export default function MapScreen() {
   const [selectedTrip, setSelectedTrip] = useState<SelectedTransitTrip | null>(
     null
   );
+  const [selectedRoute, setSelectedRoute] = useState<TransitRoute | null>(null);
   const [currentLocation, setCurrentLocation] =
     useState<Location.LocationObject | null>(null);
   const [locationStatus, setLocationStatus] = useState(
@@ -30,12 +33,30 @@ export default function MapScreen() {
       let isActive = true;
 
       async function loadMapData() {
+        setIsLoading(true);
+
         const trip = await loadSelectedTransitTrip();
 
-        if (isActive) {
-          setSelectedTrip(trip);
-          setIsLoading(false);
+        if (!isActive) {
+          return;
         }
+
+        setSelectedTrip(trip);
+
+        if (!trip) {
+          setSelectedRoute(null);
+          setIsLoading(false);
+          return;
+        }
+
+        const routeDetails = await loadBuenosAiresRouteDetails(trip.routeId);
+
+        if (!isActive) {
+          return;
+        }
+
+        setSelectedRoute(routeDetails);
+        setIsLoading(false);
 
         const permission = await Location.requestForegroundPermissionsAsync();
 
@@ -66,70 +87,12 @@ export default function MapScreen() {
     }, [])
   );
 
-  const selectedRoute = useMemo(() => {
-    if (!selectedTrip) {
-      return null;
-    }
-
-    return (
-      buenosAiresRoutes.find((route) => route.id === selectedTrip.routeId) ??
-      null
-    );
-  }, [selectedTrip]);
-
-  const selectedDirection = useMemo(() => {
-    if (!selectedRoute || !selectedTrip) {
-      return null;
-    }
-
-    return (
-      selectedRoute.directions.find(
-        (direction) => direction.id === selectedTrip.directionId
-      ) ?? null
-    );
-  }, [selectedRoute, selectedTrip]);
-
-  const destinationStop = useMemo(() => {
-    if (!selectedDirection || !selectedTrip) {
-      return null;
-    }
-
-    return (
-      selectedDirection.stops.find(
-        (stop) => stop.id === selectedTrip.destinationStopId
-      ) ?? null
-    );
-  }, [selectedDirection, selectedTrip]);
-
-  const destinationStopIndex = useMemo(() => {
-    if (!selectedDirection || !destinationStop) {
-      return -1;
-    }
-
-    return selectedDirection.stops.findIndex(
-      (stop) => stop.id === destinationStop.id
-    );
-  }, [selectedDirection, destinationStop]);
-
-  const alertStop = useMemo(() => {
-    if (!selectedDirection || !selectedTrip || destinationStopIndex < 0) {
-      return null;
-    }
-
-    if (selectedTrip.alertMode === 'distance') {
-      return destinationStop;
-    }
-
-    const alertStopIndex = Math.max(
-      destinationStopIndex - selectedTrip.selectedStopAlert,
-      0
-    );
-
-    return selectedDirection.stops[alertStopIndex] ?? null;
-  }, [selectedDirection, selectedTrip, destinationStopIndex, destinationStop]);
+  const tripDetails = useMemo(() => {
+    return getTransitTripDetails(selectedTrip, selectedRoute);
+  }, [selectedTrip, selectedRoute]);
 
   const distanceToAlertStop = useMemo(() => {
-    if (!currentLocation || !alertStop) {
+    if (!currentLocation || !tripDetails) {
       return null;
     }
 
@@ -139,43 +102,43 @@ export default function MapScreen() {
         longitude: currentLocation.coords.longitude,
       },
       {
-        latitude: alertStop.latitude,
-        longitude: alertStop.longitude,
+        latitude: tripDetails.alertStop.latitude,
+        longitude: tripDetails.alertStop.longitude,
       }
     );
-  }, [currentLocation, alertStop]);
+  }, [currentLocation, tripDetails]);
 
   const routeCoordinates = useMemo(() => {
-    if (!selectedDirection) {
+    if (!tripDetails) {
       return [];
     }
 
-    if (selectedDirection.shape.length > 0) {
-      return selectedDirection.shape.map((point) => ({
+    if (tripDetails.selectedDirection.shape.length > 0) {
+      return tripDetails.selectedDirection.shape.map((point) => ({
         latitude: point.latitude,
         longitude: point.longitude,
       }));
     }
 
-    return selectedDirection.stops.map((stop) => ({
+    return tripDetails.selectedDirection.stops.map((stop) => ({
       latitude: stop.latitude,
       longitude: stop.longitude,
     }));
-  }, [selectedDirection]);
+  }, [tripDetails]);
 
   const mapRegion = useMemo(() => {
     return createMapRegion(routeCoordinates);
   }, [routeCoordinates]);
 
   function simulateNearAlertStop() {
-    if (!alertStop) {
+    if (!tripDetails) {
       return;
     }
 
     const simulatedLocation: Location.LocationObject = {
       coords: {
-        latitude: alertStop.latitude + 0.0003,
-        longitude: alertStop.longitude + 0.0003,
+        latitude: tripDetails.alertStop.latitude + 0.0003,
+        longitude: tripDetails.alertStop.longitude + 0.0003,
         altitude: null,
         accuracy: 10,
         altitudeAccuracy: null,
@@ -258,14 +221,14 @@ export default function MapScreen() {
   }
 
   function centerOnAlertStop() {
-    if (!alertStop) {
+    if (!tripDetails) {
       return;
     }
 
     mapRef.current?.animateToRegion(
       {
-        latitude: alertStop.latitude,
-        longitude: alertStop.longitude,
+        latitude: tripDetails.alertStop.latitude,
+        longitude: tripDetails.alertStop.longitude,
         latitudeDelta: 0.01,
         longitudeDelta: 0.01,
       },
@@ -282,13 +245,7 @@ export default function MapScreen() {
     );
   }
 
-  if (
-    !selectedTrip ||
-    !selectedRoute ||
-    !selectedDirection ||
-    !destinationStop ||
-    !alertStop
-  ) {
+  if (!selectedTrip || !tripDetails) {
     return (
       <View style={styles.centerContainer}>
         <Text style={styles.title}>Mapa</Text>
@@ -322,9 +279,9 @@ export default function MapScreen() {
           />
         )}
 
-        {selectedDirection.stops.map((stop) => {
-          const isDestination = stop.id === destinationStop.id;
-          const isAlertStop = stop.id === alertStop.id;
+        {tripDetails.selectedDirection.stops.map((stop) => {
+          const isDestination = stop.id === tripDetails.destinationStop.id;
+          const isAlertStop = stop.id === tripDetails.alertStop.id;
 
           let pinColor = '#2F80ED';
 
@@ -394,18 +351,24 @@ export default function MapScreen() {
       <View style={styles.infoPanel}>
         <Text style={styles.smallLabel}>Viaje seleccionado</Text>
 
-        <Text style={styles.routeTitle}>Linea {selectedRoute.shortName}</Text>
+        <Text style={styles.routeTitle}>
+          Linea {tripDetails.selectedRoute.shortName}
+        </Text>
 
-        <Text style={styles.infoText}>{selectedDirection.name}</Text>
+        <Text style={styles.infoText}>
+          {tripDetails.selectedDirection.name}
+        </Text>
 
         <View style={styles.destinationBox}>
           <Text style={styles.destinationLabel}>Destino</Text>
-          <Text style={styles.destinationName}>{destinationStop.name}</Text>
+          <Text style={styles.destinationName}>
+            {tripDetails.destinationStop.name}
+          </Text>
         </View>
 
         <View style={styles.alertBox}>
           <Text style={styles.destinationLabel}>Parada de aviso</Text>
-          <Text style={styles.alertName}>{alertStop.name}</Text>
+          <Text style={styles.alertName}>{tripDetails.alertStop.name}</Text>
 
           {selectedTrip.alertMode === 'distance' ? (
             <Text style={styles.infoText}>

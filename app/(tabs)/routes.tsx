@@ -12,14 +12,18 @@ import {
 import { Card } from '../../components/Card';
 import { OptionButton } from '../../components/OptionButton';
 import { alertDistances, stopAlerts } from '../../data/alertOptions';
-import { buenosAiresRoutes } from '../../data/transit/buenosAiresRoutes';
+import {
+  buenosAiresRouteIndex,
+  TransitRouteIndexItem,
+} from '../../data/transit/buenosAiresRouteIndex';
+import { loadBuenosAiresRouteDetails } from '../../data/transit/loadBuenosAiresRouteDetails';
 import { saveSelectedTransitTrip } from '../../storage/selectedTransitTrip';
 import { AlertMode } from '../../types/trip';
 import { TransitDirection, TransitRoute, TransitStop } from '../../types/transit';
 
 type ListItem =
   | { type: 'routeSearch' }
-  | { type: 'route'; route: TransitRoute }
+  | { type: 'route'; route: TransitRouteIndexItem }
   | { type: 'routeEmpty' }
   | { type: 'directionHeader' }
   | { type: 'direction'; direction: TransitDirection }
@@ -34,6 +38,7 @@ export default function RoutesScreen() {
   const [stopSearch, setStopSearch] = useState('');
 
   const [selectedRouteId, setSelectedRouteId] = useState('');
+  const [selectedRoute, setSelectedRoute] = useState<TransitRoute | null>(null);
   const [selectedDirectionId, setSelectedDirectionId] = useState('');
   const [selectedDestinationStopId, setSelectedDestinationStopId] =
     useState('');
@@ -42,27 +47,21 @@ export default function RoutesScreen() {
   const [selectedDistance, setSelectedDistance] = useState(alertDistances[0]);
   const [selectedStopAlert, setSelectedStopAlert] = useState(stopAlerts[0]);
   const [savedMessage, setSavedMessage] = useState('');
+  const [isLoadingRoute, setIsLoadingRoute] = useState(false);
 
   const matchingRoutes = useMemo(() => {
     const search = normalizeText(routeSearch);
 
     if (!search) {
-      return buenosAiresRoutes;
+      return buenosAiresRouteIndex;
     }
 
-    return buenosAiresRoutes.filter((route) => {
+    return buenosAiresRouteIndex.filter((route) => {
       return normalizeText(`${route.shortName} ${route.longName}`).includes(
         search
       );
     });
   }, [routeSearch]);
-
-  const selectedRoute = useMemo(() => {
-    return (
-      buenosAiresRoutes.find((route) => route.id === selectedRouteId) ??
-      null
-    );
-  }, [selectedRouteId]);
 
   const selectedDirection = useMemo(() => {
     if (!selectedRoute) {
@@ -147,14 +146,20 @@ export default function RoutesScreen() {
     return items;
   }, [matchingRoutes, matchingStops, selectedDirection, selectedRoute]);
 
-  function selectRoute(routeId: string) {
-    const route = buenosAiresRoutes.find((item) => item.id === routeId);
-
+  async function selectRoute(routeId: string) {
+    setIsLoadingRoute(true);
+    setSavedMessage('');
     setSelectedRouteId(routeId);
-    setSelectedDirectionId(route?.directions[0]?.id ?? '');
+    setSelectedRoute(null);
+    setSelectedDirectionId('');
     setSelectedDestinationStopId('');
     setStopSearch('');
-    setSavedMessage('');
+
+    const routeDetails = await loadBuenosAiresRouteDetails(routeId);
+
+    setSelectedRoute(routeDetails);
+    setSelectedDirectionId(routeDetails?.directions[0]?.id ?? '');
+    setIsLoadingRoute(false);
   }
 
   function selectDirection(directionId: string) {
@@ -207,6 +212,10 @@ export default function RoutesScreen() {
           <Text style={styles.helperText}>
             {matchingRoutes.length} lineas encontradas.
           </Text>
+
+          {isLoadingRoute && (
+            <Text style={styles.loadingText}>Cargando detalle de linea...</Text>
+          )}
         </Card>
       );
     }
@@ -225,6 +234,11 @@ export default function RoutesScreen() {
 
           <Text style={styles.routeName} numberOfLines={2}>
             {item.route.longName || 'Sin nombre'}
+          </Text>
+
+          <Text style={styles.helperText}>
+            {item.route.directionCount} sentido(s) · {item.route.stopCount}{' '}
+            paradas
           </Text>
         </Pressable>
       );
@@ -454,7 +468,7 @@ export default function RoutesScreen() {
     return `${item.type}-${index}`;
   }
 
-  if (buenosAiresRoutes.length === 0) {
+  if (buenosAiresRouteIndex.length === 0) {
     return (
       <View style={styles.centerContainer}>
         <Text style={styles.title}>Lineas</Text>
@@ -563,6 +577,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     marginTop: 6,
+  },
+  loadingText: {
+    color: '#FFB020',
+    fontSize: 13,
+    fontWeight: '900',
+    marginTop: 10,
   },
   description: {
     color: '#B9C6D3',

@@ -14,15 +14,20 @@ const GTFS_ZIP_PATH = path.join(
   'buenos-aires-gtfs.zip'
 );
 
-const OUTPUT_PATH = path.join(
-  __dirname,
-  '..',
-  'data',
-  'transit',
-  'buenosAiresRoutes.ts'
+const TRANSIT_DIR = path.join(__dirname, '..', 'data', 'transit');
+const ROUTE_DETAILS_DIR = path.join(TRANSIT_DIR, 'routeDetails');
+
+const ROUTE_INDEX_OUTPUT_PATH = path.join(
+  TRANSIT_DIR,
+  'buenosAiresRouteIndex.ts'
 );
 
-const MAX_STOPS_PER_DIRECTION = 120;
+const ROUTE_LOADER_OUTPUT_PATH = path.join(
+  TRANSIT_DIR,
+  'loadBuenosAiresRouteDetails.ts'
+);
+
+const MAX_STOPS_PER_DIRECTION = 140;
 
 function readGtfsFile(zip, fileName) {
   const entry = zip.getEntry(fileName);
@@ -68,6 +73,22 @@ function limitStops(stops) {
   }
 
   return stops.slice(0, MAX_STOPS_PER_DIRECTION);
+}
+
+function createSafeFileName(routeId) {
+  return `route_${String(routeId).replace(/[^a-zA-Z0-9_]/g, '_')}`;
+}
+
+function clearRouteDetailsDirectory() {
+  fs.mkdirSync(ROUTE_DETAILS_DIR, { recursive: true });
+
+  const files = fs.readdirSync(ROUTE_DETAILS_DIR);
+
+  files.forEach((file) => {
+    if (file.endsWith('.ts')) {
+      fs.unlinkSync(path.join(ROUTE_DETAILS_DIR, file));
+    }
+  });
 }
 
 function buildTransitData() {
@@ -201,10 +222,6 @@ function buildTransitData() {
           name: `${firstStop.name} -> ${lastStop.name}`,
           tripId: selectedTrip.trip_id,
           stops: limitedStops,
-
-          // Importante:
-          // Dejamos shape vacio para que Expo no reviente por memoria.
-          // El mapa ya usa las paradas como recorrido aproximado si no hay shape.
           shape: [],
         });
       });
@@ -226,31 +243,99 @@ function buildTransitData() {
   return transitRoutes;
 }
 
-function writeTransitFile(transitRoutes) {
-  const fileContent = `import { TransitRoute } from '../../types/transit';
+function writeRouteIndexFile(transitRoutes) {
+  const routeIndex = transitRoutes.map((route) => {
+    return {
+      id: route.id,
+      shortName: route.shortName,
+      longName: route.longName,
+      color: route.color,
+      textColor: route.textColor,
+      directionCount: route.directions.length,
+      stopCount: route.directions.reduce((total, direction) => {
+        return total + direction.stops.length;
+      }, 0),
+    };
+  });
 
-export const buenosAiresRoutes: TransitRoute[] = ${JSON.stringify(
-    transitRoutes,
+  const fileContent = `export type TransitRouteIndexItem = {
+  id: string;
+  shortName: string;
+  longName: string;
+  color?: string;
+  textColor?: string;
+  directionCount: number;
+  stopCount: number;
+};
+
+export const buenosAiresRouteIndex: TransitRouteIndexItem[] = ${JSON.stringify(
+    routeIndex,
     null,
     2
   )};
 `;
 
-  fs.mkdirSync(path.dirname(OUTPUT_PATH), { recursive: true });
-  fs.writeFileSync(OUTPUT_PATH, fileContent, 'utf8');
+  fs.writeFileSync(ROUTE_INDEX_OUTPUT_PATH, fileContent, 'utf8');
+}
+
+function writeRouteDetailFiles(transitRoutes) {
+  transitRoutes.forEach((route) => {
+    const fileName = createSafeFileName(route.id);
+    const outputPath = path.join(ROUTE_DETAILS_DIR, `${fileName}.ts`);
+
+    const fileContent = `import { TransitRoute } from '../../../types/transit';
+
+export const routeDetails: TransitRoute = ${JSON.stringify(route, null, 2)};
+`;
+
+    fs.writeFileSync(outputPath, fileContent, 'utf8');
+  });
+}
+
+function writeRouteLoaderFile(transitRoutes) {
+  const cases = transitRoutes
+    .map((route) => {
+      const fileName = createSafeFileName(route.id);
+
+      return `    case ${JSON.stringify(route.id)}:
+      return (await import('./routeDetails/${fileName}')).routeDetails;`;
+    })
+    .join('\n\n');
+
+  const fileContent = `import { TransitRoute } from '../../types/transit';
+
+export async function loadBuenosAiresRouteDetails(
+  routeId: string
+): Promise<TransitRoute | null> {
+  switch (routeId) {
+${cases}
+
+    default:
+      return null;
+  }
+}
+`;
+
+  fs.writeFileSync(ROUTE_LOADER_OUTPUT_PATH, fileContent, 'utf8');
 }
 
 try {
+  fs.mkdirSync(TRANSIT_DIR, { recursive: true });
+  clearRouteDetailsDirectory();
+
   const transitRoutes = buildTransitData();
 
-  writeTransitFile(transitRoutes);
+  writeRouteIndexFile(transitRoutes);
+  writeRouteDetailFiles(transitRoutes);
+  writeRouteLoaderFile(transitRoutes);
 
   console.log('');
   console.log('GTFS procesado correctamente.');
   console.log(`Lineas generadas: ${transitRoutes.length}`);
   console.log(`Maximo de paradas por sentido: ${MAX_STOPS_PER_DIRECTION}`);
-  console.log('Shapes omitidos para evitar problemas de memoria en Expo.');
-  console.log(`Archivo generado: ${OUTPUT_PATH}`);
+  console.log(`Indice generado: ${ROUTE_INDEX_OUTPUT_PATH}`);
+  console.log(`Loader generado: ${ROUTE_LOADER_OUTPUT_PATH}`);
+  console.log(`Detalles generados en: ${ROUTE_DETAILS_DIR}`);
 
   if (transitRoutes.length > 0) {
     console.log('');

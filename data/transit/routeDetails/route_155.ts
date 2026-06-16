@@ -1,0 +1,802 @@
+import { TransitRoute } from '../../../types/transit';
+
+export const routeDetails: TransitRoute = {
+  "id": "155",
+  "shortName": "21I",
+  "longName": "JNAMBA021",
+  "directions": [
+    {
+      "id": "155-0",
+      "name": "17696 PAZ GRAL. AV. -> 2933 VEDIA",
+      "tripId": "155DI0",
+      "stops": [
+        {
+          "id": "2021090",
+          "name": "17696 PAZ GRAL. AV.",
+          "latitude": -34.704515,
+          "longitude": -58.461118,
+          "sequence": 1
+        },
+        {
+          "id": "2031115",
+          "name": "15398 PAZ GRAL. AV.",
+          "latitude": -34.684178,
+          "longitude": -58.488494,
+          "sequence": 2
+        },
+        {
+          "id": "2021091",
+          "name": "14868 PAZ GRAL. AV.",
+          "latitude": -34.680299,
+          "longitude": -58.49334,
+          "sequence": 3
+        },
+        {
+          "id": "2021092",
+          "name": "14604 PAZ GRAL. AV.",
+          "latitude": -34.678251,
+          "longitude": -58.496034,
+          "sequence": 4
+        },
+        {
+          "id": "205273",
+          "name": "14378 PAZ GRAL. AV.",
+          "latitude": -34.676414,
+          "longitude": -58.498458,
+          "sequence": 5
+        },
+        {
+          "id": "205274",
+          "name": "14148 PAZ GRAL. AV.",
+          "latitude": -34.674434,
+          "longitude": -58.501124,
+          "sequence": 6
+        },
+        {
+          "id": "2021078",
+          "name": "13512 PAZ GRAL. AV.",
+          "latitude": -34.669276,
+          "longitude": -58.507905,
+          "sequence": 7
+        },
+        {
+          "id": "2021079",
+          "name": "13206 PAZ GRAL. AV.",
+          "latitude": -34.666941,
+          "longitude": -58.511006,
+          "sequence": 8
+        },
+        {
+          "id": "2021077",
+          "name": "12404 PAZ GRAL. AV.",
+          "latitude": -34.659257,
+          "longitude": -58.521157,
+          "sequence": 9
+        },
+        {
+          "id": "2021076",
+          "name": "12114 PAZ GRAL. AV.",
+          "latitude": -34.656567,
+          "longitude": -58.5247,
+          "sequence": 10
+        },
+        {
+          "id": "2021080",
+          "name": "11810 PAZ GRAL. AV.",
+          "latitude": -34.653605,
+          "longitude": -58.527696,
+          "sequence": 11
+        },
+        {
+          "id": "2021081",
+          "name": "11514 PAZ GRAL. AV.",
+          "latitude": -34.65034,
+          "longitude": -58.528454,
+          "sequence": 12
+        },
+        {
+          "id": "204150",
+          "name": "10910 PAZ GRAL. AV.",
+          "latitude": -34.643131,
+          "longitude": -58.528868,
+          "sequence": 13
+        },
+        {
+          "id": "204152",
+          "name": "10776 PAZ GRAL. AV.",
+          "latitude": -34.64138,
+          "longitude": -58.529,
+          "sequence": 14
+        },
+        {
+          "id": "20886",
+          "name": "10004 PAZ GRAL. AV.",
+          "latitude": -34.633289,
+          "longitude": -58.529448,
+          "sequence": 15
+        },
+        {
+          "id": "207020",
+          "name": "9806 PAZ GRAL. AV.",
+          "latitude": -34.63119,
+          "longitude": -58.529553,
+          "sequence": 16
+        },
+        {
+          "id": "2021082",
+          "name": "9620 PAZ GRAL. AV.",
+          "latitude": -34.629187,
+          "longitude": -58.529668,
+          "sequence": 17
+        },
+        {
+          "id": "20899",
+          "name": "9224 PAZ GRAL. AV.",
+          "latitude": -34.624783,
+          "longitude": -58.529962,
+          "sequence": 18
+        },
+        {
+          "id": "207016",
+          "name": "9010 PAZ GRAL. AV.",
+          "latitude": -34.621931,
+          "longitude": -58.530166,
+          "sequence": 19
+        },
+        {
+          "id": "207013",
+          "name": "8830 PAZ GRAL. AV.",
+          "latitude": -34.618933,
+          "longitude": -58.530312,
+          "sequence": 20
+        },
+        {
+          "id": "2021083",
+          "name": "8602 PAZ GRAL. AV.",
+          "latitude": -34.61511,
+          "longitude": -58.530265,
+          "sequence": 21
+        },
+        {
+          "id": "20909",
+          "name": "8302 PAZ GRAL. AV.",
+          "latitude": -34.611574,
+          "longitude": -58.528628,
+          "sequence": 22
+        },
+        {
+          "id": "201670",
+          "name": "7924 PAZ GRAL. AV.",
+          "latitude": -34.608309,
+          "longitude": -58.527085,
+          "sequence": 23
+        },
+        {
+          "id": "2021084",
+          "name": "7700 PAZ GRAL. AV.",
+          "latitude": -34.605537,
+          "longitude": -58.525763,
+          "sequence": 24
+        },
+        {
+          "id": "201671",
+          "name": "7502 PAZ GRAL. AV.",
+          "latitude": -34.603949,
+          "longitude": -58.524977,
+          "sequence": 25
+        },
+        {
+          "id": "2031113",
+          "name": "7064 PAZ GRAL. AV.",
+          "latitude": -34.598367,
+          "longitude": -58.522402,
+          "sequence": 26
+        },
+        {
+          "id": "2021085",
+          "name": "6898 PAZ GRAL. AV.",
+          "latitude": -34.595389,
+          "longitude": -58.521117,
+          "sequence": 27
+        },
+        {
+          "id": "201673",
+          "name": "6534 PAZ GRAL. AV.",
+          "latitude": -34.592035,
+          "longitude": -58.519432,
+          "sequence": 28
+        },
+        {
+          "id": "201674",
+          "name": "6254 PAZ GRAL. AV.",
+          "latitude": -34.588958,
+          "longitude": -58.518009,
+          "sequence": 29
+        },
+        {
+          "id": "201676",
+          "name": "6084 PAZ GRAL. AV.",
+          "latitude": -34.585893,
+          "longitude": -58.516573,
+          "sequence": 30
+        },
+        {
+          "id": "202582",
+          "name": "5712 PAZ GRAL. AV.",
+          "latitude": -34.580281,
+          "longitude": -58.514089,
+          "sequence": 31
+        },
+        {
+          "id": "202597",
+          "name": "5374 PAZ GRAL. AV.",
+          "latitude": -34.576985,
+          "longitude": -58.512342,
+          "sequence": 32
+        },
+        {
+          "id": "202595",
+          "name": "5300 PAZ GRAL. AV.",
+          "latitude": -34.574635,
+          "longitude": -58.511243,
+          "sequence": 33
+        },
+        {
+          "id": "202593",
+          "name": "5204 PAZ GRAL. AV.",
+          "latitude": -34.572994,
+          "longitude": -58.510466,
+          "sequence": 34
+        },
+        {
+          "id": "205433",
+          "name": "4504 PAZ GRAL. AV.",
+          "latitude": -34.564037,
+          "longitude": -58.506368,
+          "sequence": 35
+        },
+        {
+          "id": "2021086",
+          "name": "3988 PAZ GRAL. AV.",
+          "latitude": -34.557408,
+          "longitude": -58.503256,
+          "sequence": 36
+        },
+        {
+          "id": "2021087",
+          "name": "3864 PAZ GRAL. AV.",
+          "latitude": -34.555761,
+          "longitude": -58.502482,
+          "sequence": 37
+        },
+        {
+          "id": "2031114",
+          "name": "3512 PAZ GRAL. AV.",
+          "latitude": -34.551084,
+          "longitude": -58.499952,
+          "sequence": 38
+        },
+        {
+          "id": "207829",
+          "name": "3758 VEDIA",
+          "latitude": -34.545478,
+          "longitude": -58.488468,
+          "sequence": 39
+        },
+        {
+          "id": "205607",
+          "name": "3414 VEDIA",
+          "latitude": -34.544091,
+          "longitude": -58.485853,
+          "sequence": 40
+        },
+        {
+          "id": "205609",
+          "name": "3210 VEDIA",
+          "latitude": -34.543111,
+          "longitude": -58.483976,
+          "sequence": 41
+        },
+        {
+          "id": "205613",
+          "name": "2933 VEDIA",
+          "latitude": -34.54177,
+          "longitude": -58.480711,
+          "sequence": 42
+        }
+      ],
+      "shape": []
+    },
+    {
+      "id": "155-1",
+      "name": "2863 PAZ GRAL. AV. -> PRESIDENTE JUAN DOMINGO PERÓN 5424-5498",
+      "tripId": "155DI1",
+      "stops": [
+        {
+          "id": "2031111",
+          "name": "2863 PAZ GRAL. AV.",
+          "latitude": -34.547024,
+          "longitude": -58.493899,
+          "sequence": 1
+        },
+        {
+          "id": "2031124",
+          "name": "3399 PAZ GRAL. AV.",
+          "latitude": -34.549482,
+          "longitude": -58.499227,
+          "sequence": 2
+        },
+        {
+          "id": "2031104",
+          "name": "3801 PAZ GRAL. AV.",
+          "latitude": -34.554832,
+          "longitude": -58.502608,
+          "sequence": 3
+        },
+        {
+          "id": "2031103",
+          "name": "4003 PAZ GRAL. AV.",
+          "latitude": -34.557376,
+          "longitude": -58.504212,
+          "sequence": 4
+        },
+        {
+          "id": "6861113272",
+          "name": "SAN JUAN BAUTISTA DE LA SALLE 4231",
+          "latitude": -34.557543,
+          "longitude": -58.504326,
+          "sequence": 5
+        },
+        {
+          "id": "6861116155",
+          "name": "SAN JUAN BAUTISTA DE LA SALLE 4356-4566",
+          "latitude": -34.561513,
+          "longitude": -58.506182,
+          "sequence": 6
+        },
+        {
+          "id": "2031102",
+          "name": "4523 PAZ GRAL. AV.",
+          "latitude": -34.563457,
+          "longitude": -58.507044,
+          "sequence": 7
+        },
+        {
+          "id": "6861100479",
+          "name": "SAN JUAN BAUTISTA DE LA SALLE 4607-4721",
+          "latitude": -34.563508,
+          "longitude": -58.507091,
+          "sequence": 8
+        },
+        {
+          "id": "202590",
+          "name": "5085 PAZ GRAL. AV.",
+          "latitude": -34.570128,
+          "longitude": -58.51033,
+          "sequence": 9
+        },
+        {
+          "id": "6371110248",
+          "name": "GENERAL PAZ",
+          "latitude": -34.570235,
+          "longitude": -58.510418,
+          "sequence": 10
+        },
+        {
+          "id": "202588",
+          "name": "5319 PAZ GRAL. AV.",
+          "latitude": -34.573062,
+          "longitude": -58.511729,
+          "sequence": 11
+        },
+        {
+          "id": "6371101531",
+          "name": "GENERAL PAZ",
+          "latitude": -34.573331,
+          "longitude": -58.511855,
+          "sequence": 12
+        },
+        {
+          "id": "202586",
+          "name": "5475 PAZ GRAL. AV.",
+          "latitude": -34.57562,
+          "longitude": -58.512915,
+          "sequence": 13
+        },
+        {
+          "id": "6371103056",
+          "name": "GENERAL PAZ 8489",
+          "latitude": -34.575862,
+          "longitude": -58.513021,
+          "sequence": 14
+        },
+        {
+          "id": "202585",
+          "name": "5577 PAZ GRAL. AV.",
+          "latitude": -34.577769,
+          "longitude": -58.51385,
+          "sequence": 15
+        },
+        {
+          "id": "6371102668",
+          "name": "GENERAL PAZ 8489",
+          "latitude": -34.578014,
+          "longitude": -58.513957,
+          "sequence": 16
+        },
+        {
+          "id": "201677",
+          "name": "5899 PAZ GRAL. AV.",
+          "latitude": -34.582322,
+          "longitude": -58.515811,
+          "sequence": 17
+        },
+        {
+          "id": "201678",
+          "name": "6003 PAZ GRAL. AV.",
+          "latitude": -34.584175,
+          "longitude": -58.516701,
+          "sequence": 18
+        },
+        {
+          "id": "6371102331",
+          "name": "GENERAL PAZ",
+          "latitude": -34.584458,
+          "longitude": -58.51693,
+          "sequence": 19
+        },
+        {
+          "id": "2031122",
+          "name": "6263 PAZ GRAL. AV.",
+          "latitude": -34.588641,
+          "longitude": -58.518814,
+          "sequence": 20
+        },
+        {
+          "id": "6371104401",
+          "name": "GENERAL PAZ 4753",
+          "latitude": -34.588666,
+          "longitude": -58.518858,
+          "sequence": 21
+        },
+        {
+          "id": "6371103018",
+          "name": "GENERAL PAZ 3745",
+          "latitude": -34.593166,
+          "longitude": -58.520918,
+          "sequence": 22
+        },
+        {
+          "id": "2031101",
+          "name": "6733 PAZ GRAL. AV.",
+          "latitude": -34.593206,
+          "longitude": -58.520917,
+          "sequence": 23
+        },
+        {
+          "id": "201654",
+          "name": "6851 PAZ GRAL. AV.",
+          "latitude": -34.594662,
+          "longitude": -58.52159,
+          "sequence": 24
+        },
+        {
+          "id": "6371104062",
+          "name": "95 MONTEAGUDO 2-100",
+          "latitude": -34.59471,
+          "longitude": -58.521715,
+          "sequence": 25
+        },
+        {
+          "id": "2031121",
+          "name": "7135 PAZ GRAL. AV.",
+          "latitude": -34.598907,
+          "longitude": -58.523336,
+          "sequence": 26
+        },
+        {
+          "id": "6840107188",
+          "name": "AVENIDA AMÉRICA 2707",
+          "latitude": -34.59925,
+          "longitude": -58.52357,
+          "sequence": 27
+        },
+        {
+          "id": "201666",
+          "name": "7383 PAZ GRAL. AV.",
+          "latitude": -34.602688,
+          "longitude": -58.525148,
+          "sequence": 28
+        },
+        {
+          "id": "6840102727",
+          "name": "NUESTRA SEÑORA DEL CARMEN 2306",
+          "latitude": -34.605698,
+          "longitude": -58.526843,
+          "sequence": 29
+        },
+        {
+          "id": "2031100",
+          "name": "7813 PAZ GRAL. AV.",
+          "latitude": -34.60697,
+          "longitude": -58.527442,
+          "sequence": 30
+        },
+        {
+          "id": "201669",
+          "name": "8263 PAZ GRAL. AV.",
+          "latitude": -34.610647,
+          "longitude": -58.52916,
+          "sequence": 31
+        },
+        {
+          "id": "6840101819",
+          "name": "AVENIDA LOPE DE VEGA 2199-2225",
+          "latitude": -34.610945,
+          "longitude": -58.529336,
+          "sequence": 32
+        },
+        {
+          "id": "2021099",
+          "name": "8567 PAZ GRAL. AV.",
+          "latitude": -34.614443,
+          "longitude": -58.530957,
+          "sequence": 33
+        },
+        {
+          "id": "6840101848",
+          "name": "GENERAL PAZ 7083",
+          "latitude": -34.6146,
+          "longitude": -58.531054,
+          "sequence": 34
+        },
+        {
+          "id": "6840100237",
+          "name": "GENERAL PAZ 7445",
+          "latitude": -34.618779,
+          "longitude": -58.531264,
+          "sequence": 35
+        },
+        {
+          "id": "2031120",
+          "name": "8857 PAZ GRAL. AV.",
+          "latitude": -34.618986,
+          "longitude": -58.531245,
+          "sequence": 36
+        },
+        {
+          "id": "6840100189",
+          "name": "GENERAL PAZ 7597",
+          "latitude": -34.622315,
+          "longitude": -58.531049,
+          "sequence": 37
+        },
+        {
+          "id": "6840101752",
+          "name": "GENERAL PAZ 7745-7753",
+          "latitude": -34.625261,
+          "longitude": -58.530872,
+          "sequence": 38
+        },
+        {
+          "id": "2031119",
+          "name": "9255 PAZ GRAL. AV.",
+          "latitude": -34.625529,
+          "longitude": -58.530846,
+          "sequence": 39
+        },
+        {
+          "id": "2031117",
+          "name": "10497 PAZ GRAL. AV.",
+          "latitude": -34.638131,
+          "longitude": -58.529839,
+          "sequence": 40
+        },
+        {
+          "id": "206455",
+          "name": "10921 PAZ GRAL. AV.",
+          "latitude": -34.643302,
+          "longitude": -58.529402,
+          "sequence": 41
+        },
+        {
+          "id": "206153",
+          "name": "11105 PAZ GRAL. AV.",
+          "latitude": -34.645225,
+          "longitude": -58.52926,
+          "sequence": 42
+        },
+        {
+          "id": "6840104495",
+          "name": "GENERAL PAZ 963",
+          "latitude": -34.649848,
+          "longitude": -58.5294,
+          "sequence": 43
+        },
+        {
+          "id": "2021097",
+          "name": "11493 PAZ GRAL. AV.",
+          "latitude": -34.649967,
+          "longitude": -58.529394,
+          "sequence": 44
+        },
+        {
+          "id": "6840100403",
+          "name": "AVENIDA GENERAL PAZ 1331",
+          "latitude": -34.653618,
+          "longitude": -58.529214,
+          "sequence": 45
+        },
+        {
+          "id": "2031980",
+          "name": "11815 PAZ GRAL. AV.",
+          "latitude": -34.653773,
+          "longitude": -58.529172,
+          "sequence": 46
+        },
+        {
+          "id": "6427100950",
+          "name": "GENERAL PAZ 12097",
+          "latitude": -34.656691,
+          "longitude": -58.52604,
+          "sequence": 47
+        },
+        {
+          "id": "2031116",
+          "name": "12649 PAZ GRAL. AV.",
+          "latitude": -34.661864,
+          "longitude": -58.519145,
+          "sequence": 48
+        },
+        {
+          "id": "2021096",
+          "name": "13079 PAZ GRAL. AV.",
+          "latitude": -34.666212,
+          "longitude": -58.513401,
+          "sequence": 49
+        },
+        {
+          "id": "6427113123",
+          "name": "GENERAL PAZ 13461",
+          "latitude": -34.669532,
+          "longitude": -58.509162,
+          "sequence": 50
+        },
+        {
+          "id": "6427102712",
+          "name": "GENERAL PAZ 13905-13993",
+          "latitude": -34.673611,
+          "longitude": -58.503807,
+          "sequence": 51
+        },
+        {
+          "id": "6427103765",
+          "name": "GENERAL PAZ 14469",
+          "latitude": -34.677219,
+          "longitude": -58.499141,
+          "sequence": 52
+        },
+        {
+          "id": "6427103901",
+          "name": "GENERAL PAZ 14625",
+          "latitude": -34.678877,
+          "longitude": -58.496928,
+          "sequence": 53
+        },
+        {
+          "id": "6427106640",
+          "name": "GENERAL PAZ 14837",
+          "latitude": -34.680759,
+          "longitude": -58.494472,
+          "sequence": 54
+        },
+        {
+          "id": "6427101047",
+          "name": "GENERAL PAZ",
+          "latitude": -34.684146,
+          "longitude": -58.489826,
+          "sequence": 55
+        },
+        {
+          "id": "2031123",
+          "name": "15307 PAZ GRAL. AV.",
+          "latitude": -34.684279,
+          "longitude": -58.489503,
+          "sequence": 56
+        },
+        {
+          "id": "6427110829",
+          "name": "GENERAL PAZ 16055",
+          "latitude": -34.689011,
+          "longitude": -58.483752,
+          "sequence": 57
+        },
+        {
+          "id": "6427100144",
+          "name": "GENERAL PAZ 16055",
+          "latitude": -34.690106,
+          "longitude": -58.48171,
+          "sequence": 58
+        },
+        {
+          "id": "2031108",
+          "name": "15875 PAZ GRAL. AV.",
+          "latitude": -34.690461,
+          "longitude": -58.481265,
+          "sequence": 59
+        },
+        {
+          "id": "6427105018",
+          "name": "GENERAL PAZ 16269",
+          "latitude": -34.691584,
+          "longitude": -58.479691,
+          "sequence": 60
+        },
+        {
+          "id": "2031107",
+          "name": "16043 PAZ GRAL. AV.",
+          "latitude": -34.691844,
+          "longitude": -58.479406,
+          "sequence": 61
+        },
+        {
+          "id": "6427115439",
+          "name": "GENERAL PAZ",
+          "latitude": -34.694158,
+          "longitude": -58.476377,
+          "sequence": 62
+        },
+        {
+          "id": "2031109",
+          "name": "16317 PAZ GRAL. AV.",
+          "latitude": -34.694498,
+          "longitude": -58.475924,
+          "sequence": 63
+        },
+        {
+          "id": "2031105",
+          "name": "16523 PAZ GRAL. AV.",
+          "latitude": -34.696139,
+          "longitude": -58.473719,
+          "sequence": 64
+        },
+        {
+          "id": "6427103984",
+          "name": "GENERAL PAZ 110",
+          "latitude": -34.698206,
+          "longitude": -58.470972,
+          "sequence": 65
+        },
+        {
+          "id": "2031106",
+          "name": "16791 PAZ GRAL. AV.",
+          "latitude": -34.698317,
+          "longitude": -58.470826,
+          "sequence": 66
+        },
+        {
+          "id": "6427101246",
+          "name": "GENERAL PAZ 2588",
+          "latitude": -34.701903,
+          "longitude": -58.466101,
+          "sequence": 67
+        },
+        {
+          "id": "2031110",
+          "name": "17403 PAZ GRAL. AV.",
+          "latitude": -34.702009,
+          "longitude": -58.465964,
+          "sequence": 68
+        },
+        {
+          "id": "6490102799",
+          "name": "PRESIDENTE JUAN DOMINGO PERÓN 5424-5498",
+          "latitude": -34.708382,
+          "longitude": -58.457159,
+          "sequence": 69
+        }
+      ],
+      "shape": []
+    }
+  ]
+};

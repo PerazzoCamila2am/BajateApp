@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 
 import { Card } from '../../components/Card';
+import { loadBuenosAiresRouteDetails } from '../../data/transit/loadBuenosAiresRouteDetails';
 import {
   defaultAlarmSettings,
   loadAlarmSettings,
@@ -21,6 +22,7 @@ import {
   SelectedTransitTrip,
 } from '../../storage/selectedTransitTrip';
 import { AlarmSettings } from '../../types/trip';
+import { TransitRoute } from '../../types/transit';
 import { calculateDistanceInMeters } from '../../utils/distance';
 import {
   getStopsWindow,
@@ -44,6 +46,7 @@ export default function HomeScreen() {
   const [selectedTrip, setSelectedTrip] = useState<SelectedTransitTrip | null>(
     null
   );
+  const [selectedRoute, setSelectedRoute] = useState<TransitRoute | null>(null);
   const [alarmSettings, setAlarmSettings] =
     useState<AlarmSettings>(defaultAlarmSettings);
   const [currentLocation, setCurrentLocation] =
@@ -63,14 +66,30 @@ export default function HomeScreen() {
       let isActive = true;
 
       async function loadScreenData() {
+        setIsLoading(true);
+
         const [trip, settings] = await Promise.all([
           loadSelectedTransitTrip(),
           loadAlarmSettings(),
         ]);
 
+        if (!isActive) {
+          return;
+        }
+
+        setSelectedTrip(trip);
+        setAlarmSettings(settings);
+
+        if (!trip) {
+          setSelectedRoute(null);
+          setIsLoading(false);
+          return;
+        }
+
+        const routeDetails = await loadBuenosAiresRouteDetails(trip.routeId);
+
         if (isActive) {
-          setSelectedTrip(trip);
-          setAlarmSettings(settings);
+          setSelectedRoute(routeDetails);
           setIsLoading(false);
         }
       }
@@ -84,8 +103,8 @@ export default function HomeScreen() {
   );
 
   const tripDetails = useMemo(() => {
-    return getTransitTripDetails(selectedTrip);
-  }, [selectedTrip]);
+    return getTransitTripDetails(selectedTrip, selectedRoute);
+  }, [selectedTrip, selectedRoute]);
 
   const targetStop = tripDetails?.alertStop ?? null;
   const alertDistanceInMeters = tripDetails?.alertDistanceInMeters ?? 300;
