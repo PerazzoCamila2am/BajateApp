@@ -31,6 +31,16 @@ export default function TabLayout() {
         }}
       />
 
+    <Tabs.Screen
+      name="routes"
+      options={{
+        title: 'Líneas',
+        tabBarIcon: ({ focused }) => (
+          <Text style={{ fontSize: 20 }}>{focused ? '🚍' : '🚌'}</Text>
+        ),
+      }}
+    />
+
       <Tabs.Screen
         name="favorites"
         options={{
