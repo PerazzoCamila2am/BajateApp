@@ -48,36 +48,38 @@ export default function TabLayout() {
       <Tabs.Screen
         name="map"
         options={{
-        title: 'Mapa',
-        tabBarIcon: ({ focused }) => (
-          <Text style={{ fontSize: 18, fontWeight: '900' }}>
-            {focused ? 'M' : 'm'}
-          </Text>
-         ),
-      }}
-    />
-
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: 'Config',
+          title: 'Mapa',
           tabBarIcon: ({ focused }) => (
             <Text style={{ fontSize: 18, fontWeight: '900' }}>
-              {focused ? 'C' : 'c'}
+              {focused ? 'M' : 'm'}
             </Text>
           ),
         }}
       />
 
       <Tabs.Screen
-        name="explore"
+        name="more"
         options={{
-          title: 'Guia',
+          title: 'Mas',
           tabBarIcon: ({ focused }) => (
             <Text style={{ fontSize: 18, fontWeight: '900' }}>
-              {focused ? 'G' : 'g'}
+              {focused ? '+' : '...'}
             </Text>
           ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="settings"
+        options={{
+          href: null,
+        }}
+      />
+
+      <Tabs.Screen
+        name="explore"
+        options={{
+          href: null,
         }}
       />
     </Tabs>
