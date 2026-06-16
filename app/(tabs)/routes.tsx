@@ -12,7 +12,7 @@ import {
 import { Card } from '../../components/Card';
 import { OptionButton } from '../../components/OptionButton';
 import { alertDistances, stopAlerts } from '../../data/alertOptions';
-import { buenosAiresSampleRoutes } from '../../data/transit/buenosAiresSample';
+import { buenosAiresRoutes } from '../../data/transit/buenosAiresRoutes';
 import { saveSelectedTransitTrip } from '../../storage/selectedTransitTrip';
 import { AlertMode } from '../../types/trip';
 import { TransitDirection, TransitRoute, TransitStop } from '../../types/transit';
@@ -47,10 +47,10 @@ export default function RoutesScreen() {
     const search = normalizeText(routeSearch);
 
     if (!search) {
-      return buenosAiresSampleRoutes;
+      return buenosAiresRoutes;
     }
 
-    return buenosAiresSampleRoutes.filter((route) => {
+    return buenosAiresRoutes.filter((route) => {
       return normalizeText(`${route.shortName} ${route.longName}`).includes(
         search
       );
@@ -59,7 +59,7 @@ export default function RoutesScreen() {
 
   const selectedRoute = useMemo(() => {
     return (
-      buenosAiresSampleRoutes.find((route) => route.id === selectedRouteId) ??
+      buenosAiresRoutes.find((route) => route.id === selectedRouteId) ??
       null
     );
   }, [selectedRouteId]);
@@ -148,7 +148,7 @@ export default function RoutesScreen() {
   }, [matchingRoutes, matchingStops, selectedDirection, selectedRoute]);
 
   function selectRoute(routeId: string) {
-    const route = buenosAiresSampleRoutes.find((item) => item.id === routeId);
+    const route = buenosAiresRoutes.find((item) => item.id === routeId);
 
     setSelectedRouteId(routeId);
     setSelectedDirectionId(route?.directions[0]?.id ?? '');
@@ -454,7 +454,7 @@ export default function RoutesScreen() {
     return `${item.type}-${index}`;
   }
 
-  if (buenosAiresSampleRoutes.length === 0) {
+  if (buenosAiresRoutes.length === 0) {
     return (
       <View style={styles.centerContainer}>
         <Text style={styles.title}>Lineas</Text>

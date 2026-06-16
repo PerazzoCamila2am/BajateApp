@@ -19,7 +19,7 @@ const OUTPUT_PATH = path.join(
   '..',
   'data',
   'transit',
-  'buenosAiresSample.ts'
+  'buenosAiresRoutes.ts'
 );
 
 const MAX_STOPS_PER_DIRECTION = 120;
@@ -229,7 +229,7 @@ function buildTransitData() {
 function writeTransitFile(transitRoutes) {
   const fileContent = `import { TransitRoute } from '../../types/transit';
 
-export const buenosAiresSampleRoutes: TransitRoute[] = ${JSON.stringify(
+export const buenosAiresRoutes: TransitRoute[] = ${JSON.stringify(
     transitRoutes,
     null,
     2

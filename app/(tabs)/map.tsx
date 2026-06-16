@@ -5,7 +5,7 @@ import MapView, { Marker, Polyline } from 'react-native-maps';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '../../components/Card';
-import { buenosAiresSampleRoutes } from '../../data/transit/buenosAiresSample';
+import { buenosAiresRoutes } from '../../data/transit/buenosAiresRoutes';
 import {
   loadSelectedTransitTrip,
   SelectedTransitTrip,
@@ -72,7 +72,7 @@ export default function MapScreen() {
     }
 
     return (
-      buenosAiresSampleRoutes.find((route) => route.id === selectedTrip.routeId) ??
+      buenosAiresRoutes.find((route) => route.id === selectedTrip.routeId) ??
       null
     );
   }, [selectedTrip]);

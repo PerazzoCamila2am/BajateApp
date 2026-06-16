@@ -1,4 +1,4 @@
-import { buenosAiresSampleRoutes } from '../data/transit/buenosAiresSample';
+import { buenosAiresRoutes } from '../data/transit/buenosAiresRoutes';
 import { SelectedTransitTrip } from '../storage/selectedTransitTrip';
 import { TransitDirection, TransitRoute, TransitStop } from '../types/transit';
 
@@ -20,7 +20,7 @@ export function getTransitTripDetails(
   }
 
   const selectedRoute =
-    buenosAiresSampleRoutes.find((route) => route.id === selectedTrip.routeId) ??
+    buenosAiresRoutes.find((route) => route.id === selectedTrip.routeId) ??
     null;
 
   if (!selectedRoute) {
