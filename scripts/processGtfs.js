@@ -1,10 +1,13 @@
+/* global __dirname */
+
 const fs = require('fs');
 const path = require('path');
 const AdmZip = require('adm-zip');
 const { parse } = require('csv-parse/sync');
 
-const RAW_GTFS_PATH = path.join(
-  process.cwd(),
+const GTFS_ZIP_PATH = path.join(
+  __dirname,
+  '..',
   'data',
   'gtfs',
   'raw',
@@ -12,88 +15,156 @@ const RAW_GTFS_PATH = path.join(
 );
 
 const OUTPUT_PATH = path.join(
-  process.cwd(),
+  __dirname,
+  '..',
   'data',
   'transit',
   'buenosAiresSample.ts'
 );
 
-const MAX_ROUTES = 12;
-const MAX_SHAPE_POINTS = 300;
+const MAX_STOPS_PER_DIRECTION = 120;
 
-function main() {
-  if (!fs.existsSync(RAW_GTFS_PATH)) {
-    console.error('\nNo se encontró el archivo GTFS.');
-    console.error('Guardalo en esta ruta:');
-    console.error(RAW_GTFS_PATH);
-    process.exit(1);
+function readGtfsFile(zip, fileName) {
+  const entry = zip.getEntry(fileName);
+
+  if (!entry) {
+    throw new Error(`No se encontro ${fileName} dentro del ZIP GTFS`);
   }
 
-  console.log('Leyendo GTFS de Buenos Aires...');
+  const content = entry.getData().toString('utf8');
 
-  const zip = new AdmZip(RAW_GTFS_PATH);
+  return parse(content, {
+    columns: true,
+    skip_empty_lines: true,
+    bom: true,
+  });
+}
 
-  const routes = readCsvFromZip(zip, 'routes.txt');
-  const trips = readCsvFromZip(zip, 'trips.txt');
-  const stops = readCsvFromZip(zip, 'stops.txt');
-  const stopTimes = readCsvFromZip(zip, 'stop_times.txt');
-  const shapes = readOptionalCsvFromZip(zip, 'shapes.txt');
+function normalizeRouteName(value) {
+  return String(value || '').trim();
+}
 
-  console.log(`routes.txt: ${routes.length} filas`);
-  console.log(`trips.txt: ${trips.length} filas`);
-  console.log(`stops.txt: ${stops.length} filas`);
-  console.log(`stop_times.txt: ${stopTimes.length} filas`);
-  console.log(`shapes.txt: ${shapes.length} filas`);
+function sortBySequence(a, b) {
+  return Number(a.stop_sequence) - Number(b.stop_sequence);
+}
 
-  const selectedRoutes = selectRoutes(routes);
-  const selectedRouteIds = new Set(selectedRoutes.map((route) => route.route_id));
+function sortRoutes(a, b) {
+  const routeA = normalizeRouteName(a.route_short_name);
+  const routeB = normalizeRouteName(b.route_short_name);
 
-  const tripsByRouteId = groupTripsByRouteId(trips, selectedRouteIds);
-  const selectedTripIds = new Set();
+  const numberA = Number(routeA);
+  const numberB = Number(routeB);
 
-  const directionsByRouteId = new Map();
+  if (!Number.isNaN(numberA) && !Number.isNaN(numberB)) {
+    return numberA - numberB;
+  }
 
-  selectedRoutes.forEach((route) => {
-    const routeTrips = tripsByRouteId.get(route.route_id) ?? [];
-    const directions = pickTripsByDirection(routeTrips);
+  return routeA.localeCompare(routeB, 'es', { numeric: true });
+}
 
-    directionsByRouteId.set(route.route_id, directions);
+function limitStops(stops) {
+  if (stops.length <= MAX_STOPS_PER_DIRECTION) {
+    return stops;
+  }
 
-    directions.forEach((trip) => {
-      selectedTripIds.add(trip.trip_id);
-    });
+  return stops.slice(0, MAX_STOPS_PER_DIRECTION);
+}
+
+function buildTransitData() {
+  if (!fs.existsSync(GTFS_ZIP_PATH)) {
+    throw new Error(`No se encontro el archivo GTFS en: ${GTFS_ZIP_PATH}`);
+  }
+
+  const zip = new AdmZip(GTFS_ZIP_PATH);
+
+  console.log('Leyendo GTFS...');
+
+  const routes = readGtfsFile(zip, 'routes.txt');
+  const trips = readGtfsFile(zip, 'trips.txt');
+  const stops = readGtfsFile(zip, 'stops.txt');
+  const stopTimes = readGtfsFile(zip, 'stop_times.txt');
+
+  console.log(`Rutas GTFS: ${routes.length}`);
+  console.log(`Trips GTFS: ${trips.length}`);
+  console.log(`Paradas GTFS: ${stops.length}`);
+  console.log(`Stop times GTFS: ${stopTimes.length}`);
+
+  const stopsById = new Map();
+
+  stops.forEach((stop) => {
+    stopsById.set(stop.stop_id, stop);
   });
 
-  const stopsById = new Map(
-    stops.map((stop) => [
-      stop.stop_id,
-      {
-        id: stop.stop_id,
-        name: stop.stop_name || 'Parada sin nombre',
-        latitude: Number(stop.stop_lat),
-        longitude: Number(stop.stop_lon),
-      },
-    ])
-  );
+  const stopTimesByTripId = new Map();
 
-  const stopTimesByTripId = groupStopTimesByTripId(stopTimes, selectedTripIds);
-  const shapesById = groupShapesById(shapes);
+  stopTimes.forEach((stopTime) => {
+    const tripId = stopTime.trip_id;
 
-  const processedRoutes = selectedRoutes.map((route) => {
-    const selectedTrips = directionsByRouteId.get(route.route_id) ?? [];
+    if (!stopTimesByTripId.has(tripId)) {
+      stopTimesByTripId.set(tripId, []);
+    }
 
-    return {
-      id: route.route_id,
-      shortName: route.route_short_name || route.route_id,
-      longName: route.route_long_name || route.route_short_name || route.route_id,
-      color: normalizeColor(route.route_color),
-      textColor: normalizeColor(route.route_text_color),
-      directions: selectedTrips.map((trip) => {
-        const tripStopTimes = stopTimesByTripId.get(trip.trip_id) ?? [];
+    stopTimesByTripId.get(tripId).push(stopTime);
+  });
+
+  for (const tripStopTimes of stopTimesByTripId.values()) {
+    tripStopTimes.sort(sortBySequence);
+  }
+
+  const tripsByRouteId = new Map();
+
+  trips.forEach((trip) => {
+    const routeId = trip.route_id;
+
+    if (!tripsByRouteId.has(routeId)) {
+      tripsByRouteId.set(routeId, []);
+    }
+
+    tripsByRouteId.get(routeId).push(trip);
+  });
+
+  const sortedRoutes = routes.slice().sort(sortRoutes);
+  const transitRoutes = [];
+
+  sortedRoutes.forEach((route) => {
+    const routeTrips = tripsByRouteId.get(route.route_id) ?? [];
+
+    if (routeTrips.length === 0) {
+      return;
+    }
+
+    const tripsByDirection = new Map();
+
+    routeTrips.forEach((trip) => {
+      const directionId = trip.direction_id || '0';
+
+      if (!tripsByDirection.has(directionId)) {
+        tripsByDirection.set(directionId, []);
+      }
+
+      tripsByDirection.get(directionId).push(trip);
+    });
+
+    const directions = [];
+
+    Array.from(tripsByDirection.entries())
+      .sort(([directionA], [directionB]) => {
+        return String(directionA).localeCompare(String(directionB));
+      })
+      .forEach(([directionId, directionTrips]) => {
+        const selectedTrip = directionTrips.find((trip) => {
+          const tripStopTimes = stopTimesByTripId.get(trip.trip_id) ?? [];
+          return tripStopTimes.length > 1;
+        });
+
+        if (!selectedTrip) {
+          return;
+        }
+
+        const tripStopTimes = stopTimesByTripId.get(selectedTrip.trip_id) ?? [];
 
         const directionStops = tripStopTimes
-          .sort((a, b) => Number(a.stop_sequence) - Number(b.stop_sequence))
-          .map((stopTime) => {
+          .map((stopTime, index) => {
             const stop = stopsById.get(stopTime.stop_id);
 
             if (!stop) {
@@ -101,205 +172,97 @@ function main() {
             }
 
             return {
-              ...stop,
-              sequence: Number(stopTime.stop_sequence),
+              id: stop.stop_id,
+              name: stop.stop_name || `Parada ${index + 1}`,
+              latitude: Number(stop.stop_lat),
+              longitude: Number(stop.stop_lon),
+              sequence: index + 1,
             };
           })
-          .filter(Boolean);
+          .filter((stop) => {
+            return (
+              stop &&
+              Number.isFinite(stop.latitude) &&
+              Number.isFinite(stop.longitude)
+            );
+          });
 
-        const shape = getShapePoints(shapesById, trip.shape_id);
+        const limitedStops = limitStops(directionStops);
 
-        return {
-          id: trip.direction_id || '0',
-          name:
-            trip.trip_headsign ||
-            `Sentido ${trip.direction_id || '0'}`,
-          tripId: trip.trip_id,
-          stops: directionStops,
-          shape,
-        };
-      }),
-    };
-  });
+        if (limitedStops.length < 2) {
+          return;
+        }
 
-  writeOutput(processedRoutes);
+        const firstStop = limitedStops[0];
+        const lastStop = limitedStops[limitedStops.length - 1];
 
-  console.log('\nGTFS procesado correctamente.');
-  console.log(`Archivo generado: ${OUTPUT_PATH}`);
-  console.log(`Rutas generadas: ${processedRoutes.length}`);
-}
+        directions.push({
+          id: `${route.route_id}-${directionId}`,
+          name: `${firstStop.name} -> ${lastStop.name}`,
+          tripId: selectedTrip.trip_id,
+          stops: limitedStops,
 
-function readCsvFromZip(zip, fileName) {
-  const entry = findEntry(zip, fileName);
+          // Importante:
+          // Dejamos shape vacio para que Expo no reviente por memoria.
+          // El mapa ya usa las paradas como recorrido aproximado si no hay shape.
+          shape: [],
+        });
+      });
 
-  if (!entry) {
-    throw new Error(`No se encontró ${fileName} dentro del ZIP`);
-  }
-
-  const content = entry.getData().toString('utf8');
-
-  return parse(content, {
-    columns: true,
-    skip_empty_lines: true,
-    trim: true,
-    bom: true,
-  });
-}
-
-function readOptionalCsvFromZip(zip, fileName) {
-  const entry = findEntry(zip, fileName);
-
-  if (!entry) {
-    return [];
-  }
-
-  const content = entry.getData().toString('utf8');
-
-  return parse(content, {
-    columns: true,
-    skip_empty_lines: true,
-    trim: true,
-    bom: true,
-  });
-}
-
-function findEntry(zip, fileName) {
-  return zip
-    .getEntries()
-    .find(
-      (entry) =>
-        entry.entryName === fileName || entry.entryName.endsWith(`/${fileName}`)
-    );
-}
-
-function selectRoutes(routes) {
-  return routes
-    .filter((route) => route.route_id)
-    .sort((a, b) =>
-      String(a.route_short_name || a.route_id).localeCompare(
-        String(b.route_short_name || b.route_id),
-        'es',
-        { numeric: true }
-      )
-    )
-    .slice(0, MAX_ROUTES);
-}
-
-function groupTripsByRouteId(trips, selectedRouteIds) {
-  const map = new Map();
-
-  trips.forEach((trip) => {
-    if (!selectedRouteIds.has(trip.route_id)) {
+    if (directions.length === 0) {
       return;
     }
 
-    const currentTrips = map.get(trip.route_id) ?? [];
-    currentTrips.push(trip);
-    map.set(trip.route_id, currentTrips);
+    transitRoutes.push({
+      id: route.route_id,
+      shortName: normalizeRouteName(route.route_short_name),
+      longName: normalizeRouteName(route.route_long_name),
+      color: route.route_color || undefined,
+      textColor: route.route_text_color || undefined,
+      directions,
+    });
   });
 
-  return map;
+  return transitRoutes;
 }
 
-function pickTripsByDirection(trips) {
-  const map = new Map();
-
-  trips.forEach((trip) => {
-    const directionId = trip.direction_id || '0';
-
-    if (!map.has(directionId)) {
-      map.set(directionId, trip);
-    }
-  });
-
-  return Array.from(map.values()).slice(0, 2);
-}
-
-function groupStopTimesByTripId(stopTimes, selectedTripIds) {
-  const map = new Map();
-
-  stopTimes.forEach((stopTime) => {
-    if (!selectedTripIds.has(stopTime.trip_id)) {
-      return;
-    }
-
-    const currentStopTimes = map.get(stopTime.trip_id) ?? [];
-    currentStopTimes.push(stopTime);
-    map.set(stopTime.trip_id, currentStopTimes);
-  });
-
-  return map;
-}
-
-function groupShapesById(shapes) {
-  const map = new Map();
-
-  shapes.forEach((shapePoint) => {
-    const shapeId = shapePoint.shape_id;
-
-    if (!shapeId) {
-      return;
-    }
-
-    const currentShape = map.get(shapeId) ?? [];
-    currentShape.push(shapePoint);
-    map.set(shapeId, currentShape);
-  });
-
-  return map;
-}
-
-function getShapePoints(shapesById, shapeId) {
-  if (!shapeId || !shapesById.has(shapeId)) {
-    return [];
-  }
-
-  const points = shapesById
-    .get(shapeId)
-    .sort((a, b) => Number(a.shape_pt_sequence) - Number(b.shape_pt_sequence))
-    .map((point) => ({
-      latitude: Number(point.shape_pt_lat),
-      longitude: Number(point.shape_pt_lon),
-    }))
-    .filter(
-      (point) =>
-        Number.isFinite(point.latitude) && Number.isFinite(point.longitude)
-    );
-
-  if (points.length <= MAX_SHAPE_POINTS) {
-    return points;
-  }
-
-  const step = Math.ceil(points.length / MAX_SHAPE_POINTS);
-
-  return points.filter((_, index) => index % step === 0);
-}
-
-function normalizeColor(color) {
-  if (!color) {
-    return undefined;
-  }
-
-  return `#${String(color).replace('#', '')}`;
-}
-
-function writeOutput(routes) {
-  fs.mkdirSync(path.dirname(OUTPUT_PATH), { recursive: true });
-
-  const content = `// Archivo generado automáticamente por scripts/processGtfs.js
-// No editar manualmente.
-
-import { TransitRoute } from '../../types/transit';
+function writeTransitFile(transitRoutes) {
+  const fileContent = `import { TransitRoute } from '../../types/transit';
 
 export const buenosAiresSampleRoutes: TransitRoute[] = ${JSON.stringify(
-    routes,
+    transitRoutes,
     null,
     2
   )};
 `;
 
-  fs.writeFileSync(OUTPUT_PATH, content, 'utf8');
+  fs.mkdirSync(path.dirname(OUTPUT_PATH), { recursive: true });
+  fs.writeFileSync(OUTPUT_PATH, fileContent, 'utf8');
 }
 
-main();
+try {
+  const transitRoutes = buildTransitData();
 
+  writeTransitFile(transitRoutes);
+
+  console.log('');
+  console.log('GTFS procesado correctamente.');
+  console.log(`Lineas generadas: ${transitRoutes.length}`);
+  console.log(`Maximo de paradas por sentido: ${MAX_STOPS_PER_DIRECTION}`);
+  console.log('Shapes omitidos para evitar problemas de memoria en Expo.');
+  console.log(`Archivo generado: ${OUTPUT_PATH}`);
+
+  if (transitRoutes.length > 0) {
+    console.log('');
+    console.log('Primeras lineas generadas:');
+
+    transitRoutes.slice(0, 10).forEach((route) => {
+      console.log(`- ${route.shortName} ${route.longName}`.trim());
+    });
+  }
+} catch (error) {
+  console.error('');
+  console.error('Error procesando GTFS:');
+  console.error(error);
+  process.exit(1);
+}
