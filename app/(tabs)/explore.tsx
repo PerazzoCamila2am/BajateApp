@@ -1,105 +1,131 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
-export default function GuideScreen() {
+import { Card } from '../../components/Card';
+
+export default function ExploreScreen() {
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <Text style={styles.appName}>BajateApp</Text>
-        <Text style={styles.title}>¿Cómo funciona?</Text>
-        <Text style={styles.subtitle}>
-          Configurás una alerta, iniciás el viaje y la app te avisa antes de llegar.
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Text style={styles.title}>Guia</Text>
+      <Text style={styles.subtitle}>
+        BajateApp te ayuda a elegir una linea, marcar tu parada destino y recibir
+        una alerta antes de bajarte.
+      </Text>
+
+      <Card>
+        <Text style={styles.sectionLabel}>Como usar la app</Text>
+
+        <View style={styles.step}>
+          <Text style={styles.stepNumber}>1</Text>
+          <View style={styles.stepContent}>
+            <Text style={styles.stepTitle}>Elegi una linea</Text>
+            <Text style={styles.description}>
+              En la pestana Lineas podes buscar una linea real cargada desde
+              datos GTFS.
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.step}>
+          <Text style={styles.stepNumber}>2</Text>
+          <View style={styles.stepContent}>
+            <Text style={styles.stepTitle}>Selecciona el sentido</Text>
+            <Text style={styles.description}>
+              Cada linea puede tener uno o mas sentidos. Elegi el recorrido que
+              corresponde a tu viaje.
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.step}>
+          <Text style={styles.stepNumber}>3</Text>
+          <View style={styles.stepContent}>
+            <Text style={styles.stepTitle}>Marca tu parada destino</Text>
+            <Text style={styles.description}>
+              Busca la parada donde queres bajarte y guardala como destino.
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.step}>
+          <Text style={styles.stepNumber}>4</Text>
+          <View style={styles.stepContent}>
+            <Text style={styles.stepTitle}>Inicia el seguimiento</Text>
+            <Text style={styles.description}>
+              En Viaje podes iniciar GPS real o usar modo prueba para verificar
+              la alarma.
+            </Text>
+          </View>
+        </View>
+      </Card>
+
+      <Card>
+        <Text style={styles.sectionLabel}>Estado actual</Text>
+
+        <Text style={styles.feature}>Datos GTFS procesados</Text>
+        <Text style={styles.feature}>Busqueda de lineas y paradas</Text>
+        <Text style={styles.feature}>Viaje guardado localmente</Text>
+        <Text style={styles.feature}>Mapa del recorrido seleccionado</Text>
+        <Text style={styles.feature}>Parada destino y parada de aviso</Text>
+        <Text style={styles.feature}>GPS en primer plano</Text>
+        <Text style={styles.feature}>Modo prueba para simular ubicacion</Text>
+        <Text style={styles.feature}>Alarma con sonido y vibracion</Text>
+      </Card>
+
+      <Card>
+        <Text style={styles.sectionLabel}>Importante</Text>
+
+        <Text style={styles.description}>
+          Por ahora los datos cargados son de Buenos Aires. Si no estas en
+          Buenos Aires, tu ubicacion real va a aparecer lejos del recorrido. Para
+          probar la logica de la app, usa los botones de modo prueba.
         </Text>
-      </View>
+      </Card>
 
-      <View style={styles.card}>
-        <Text style={styles.stepNumber}>1</Text>
-        <Text style={styles.cardTitle}>Elegí tu destino</Text>
-        <Text style={styles.cardText}>
-          En esta versión demo podés elegir Facultad, Centro o Casa como destino.
-        </Text>
-      </View>
+      <Card>
+        <Text style={styles.sectionLabel}>Proximos pasos</Text>
 
-      <View style={styles.card}>
-        <Text style={styles.stepNumber}>2</Text>
-        <Text style={styles.cardTitle}>Elegí cómo querés que te avise</Text>
-        <Text style={styles.cardText}>
-          Podés usar aviso por distancia, como 300 m, 500 m o 800 m, o aviso por paradas.
-        </Text>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.stepNumber}>3</Text>
-        <Text style={styles.cardTitle}>Iniciá la simulación</Text>
-        <Text style={styles.cardText}>
-          La distancia empieza a bajar como si estuvieras viajando en colectivo.
-        </Text>
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.stepNumber}>4</Text>
-        <Text style={styles.cardTitle}>Recibí la alerta</Text>
-        <Text style={styles.cardText}>
-          Cuando llegás al punto configurado, BajateApp cambia el estado, muestra una alerta y vibra.
-        </Text>
-      </View>
-
-      <View style={styles.infoCard}>
-        <Text style={styles.infoTitle}>Versión actual</Text>
-        <Text style={styles.infoText}>
-          Esta versión ya permite elegir líneas, sentidos y paradas reales desde datos GTFS procesados de Buenos Aires. El seguimiento del viaje real todavía avanza de forma simulada por paradas.
-        </Text>
-      </View>
-
-      <View style={styles.infoCard}>
-        <Text style={styles.infoTitle}>Próximas mejoras</Text>
-
-        <Text style={styles.bullet}>• Conectar el viaje real con GPS en primer plano</Text>
-        <Text style={styles.bullet}>• Mostrar mapa real del recorrido GTFS</Text>
-        <Text style={styles.bullet}>• Agregar notificaciones locales</Text>
-        <Text style={styles.bullet}>• Mejorar búsqueda de líneas y paradas</Text>
-        <Text style={styles.bullet}>• Preparar ubicación en segundo plano</Text>
-      </View>
+        <Text style={styles.pending}>Agregar datos de otras ciudades</Text>
+        <Text style={styles.pending}>Mejorar rendimiento con mas lineas</Text>
+        <Text style={styles.pending}>Agregar notificaciones locales</Text>
+        <Text style={styles.pending}>Preparar seguimiento en segundo plano</Text>
+        <Text style={styles.pending}>Pulir diseno final e icono de app</Text>
+      </Card>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
+  container: {
     flex: 1,
     backgroundColor: '#101820',
   },
   content: {
-    padding: 22,
-    paddingBottom: 36,
-    gap: 14,
-  },
-  header: {
-    marginTop: 20,
-    marginBottom: 4,
-  },
-  appName: {
-    color: '#5DE2A3',
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 10,
+    padding: 20,
+    paddingTop: 58,
+    paddingBottom: 120,
+    gap: 16,
   },
   title: {
     color: '#FFFFFF',
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: '900',
   },
   subtitle: {
-    color: '#B8C2CC',
-    fontSize: 17,
-    lineHeight: 24,
-    marginTop: 8,
+    color: '#B9C6D3',
+    fontSize: 15,
+    lineHeight: 22,
   },
-  card: {
-    backgroundColor: '#17212B',
-    borderRadius: 22,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: '#263544',
+  sectionLabel: {
+    color: '#8FA1B3',
+    fontSize: 12,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    marginBottom: 8,
+  },
+  step: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
   },
   stepNumber: {
     width: 34,
@@ -109,42 +135,39 @@ const styles = StyleSheet.create({
     color: '#101820',
     textAlign: 'center',
     lineHeight: 34,
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '900',
-    marginBottom: 12,
   },
-  cardTitle: {
+  stepContent: {
+    flex: 1,
+  },
+  stepTitle: {
     color: '#FFFFFF',
-    fontSize: 20,
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  description: {
+    color: '#B9C6D3',
+    fontSize: 14,
+    lineHeight: 21,
+    marginTop: 4,
+  },
+  feature: {
+    backgroundColor: '#183326',
+    color: '#5DE2A3',
+    fontSize: 14,
     fontWeight: '800',
-    marginBottom: 6,
+    padding: 12,
+    borderRadius: 14,
+    marginTop: 8,
   },
-  cardText: {
-    color: '#B8C2CC',
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  infoCard: {
-    backgroundColor: '#122A34',
-    borderRadius: 22,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: '#245365',
-  },
-  infoTitle: {
+  pending: {
+    backgroundColor: '#223142',
     color: '#FFFFFF',
-    fontSize: 19,
+    fontSize: 14,
     fontWeight: '800',
-    marginBottom: 8,
-  },
-  infoText: {
-    color: '#B8C2CC',
-    fontSize: 15,
-    lineHeight: 22,
-  },
-  bullet: {
-    color: '#B8C2CC',
-    fontSize: 15,
-    lineHeight: 24,
+    padding: 12,
+    borderRadius: 14,
+    marginTop: 8,
   },
 });
