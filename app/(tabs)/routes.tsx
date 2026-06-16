@@ -39,6 +39,7 @@ type ListItem =
 export default function RoutesScreen() {
   const [routeSearch, setRouteSearch] = useState('');
   const [stopSearch, setStopSearch] = useState('');
+  const [isRoutePickerOpen, setIsRoutePickerOpen] = useState(true);
 
   const [selectedRouteId, setSelectedRouteId] = useState('');
   const [selectedRoute, setSelectedRoute] = useState<TransitRoute | null>(null);
@@ -114,15 +115,17 @@ export default function RoutesScreen() {
   const listItems = useMemo<ListItem[]>(() => {
     const items: ListItem[] = [{ type: 'routeSearch' }];
 
-  if (normalizeText(routeSearch).length < MIN_ROUTE_SEARCH_LENGTH) {
-  items.push({ type: 'routePrompt' });
-  } else if (matchingRoutes.length === 0) {
-  items.push({ type: 'routeEmpty' });
-  } else {
-  matchingRoutes.forEach((route) => {
-    items.push({ type: 'route', route });
-  });
-}
+  if (isRoutePickerOpen) {
+    if (normalizeText(routeSearch).length < MIN_ROUTE_SEARCH_LENGTH) {
+      items.push({ type: 'routePrompt' });
+    } else if (matchingRoutes.length === 0) {
+      items.push({ type: 'routeEmpty' });
+    } else {
+      matchingRoutes.forEach((route) => {
+        items.push({ type: 'route', route });
+      });
+    }
+  }
 
     if (selectedRoute) {
       items.push({ type: 'directionHeader' });
@@ -150,17 +153,19 @@ export default function RoutesScreen() {
 
     return items;
   }, [
-  matchingRoutes,
-  matchingStops,
-  routeSearch,
-  selectedDirection,
-  selectedRoute,
-]);
+    isRoutePickerOpen,
+    matchingRoutes,
+    matchingStops,
+    routeSearch,
+    selectedDirection,
+    selectedRoute,
+  ]);
 
   async function selectRoute(routeId: string) {
     setIsLoadingRoute(true);
     setSavedMessage('');
     setSelectedRouteId(routeId);
+    setIsRoutePickerOpen(false);
     setSelectedRoute(null);
     setSelectedDirectionId('');
     setSelectedDestinationStopId('');
@@ -208,10 +213,36 @@ export default function RoutesScreen() {
 
   function renderItem({ item }: { item: ListItem }) {
     if (item.type === 'routeSearch') {
-      return (
-        <Card>
-          <Text style={styles.sectionLabel}>Buscar linea</Text>
+  return (
+    <Card>
+      <Text style={styles.sectionLabel}>
+        {selectedRoute && !isRoutePickerOpen
+          ? 'Linea seleccionada'
+          : 'Buscar linea'}
+      </Text>
 
+      {selectedRoute && !isRoutePickerOpen ? (
+        <>
+          <Text style={styles.selectedRouteTitle}>
+            Linea {selectedRoute.shortName}
+          </Text>
+
+          <Text style={styles.description}>
+            {selectedRoute.longName || 'Sin nombre'}
+          </Text>
+
+          <Pressable
+            style={styles.changeRouteButton}
+            onPress={() => {
+              setIsRoutePickerOpen(true);
+              setSavedMessage('');
+            }}
+          >
+            <Text style={styles.changeRouteButtonText}>Cambiar linea</Text>
+          </Pressable>
+        </>
+      ) : (
+        <>
           <TextInput
             value={routeSearch}
             onChangeText={setRouteSearch}
@@ -221,17 +252,19 @@ export default function RoutesScreen() {
           />
 
           <Text style={styles.helperText}>
-          {normalizeText(routeSearch).length < MIN_ROUTE_SEARCH_LENGTH
-          ? 'Escribi el numero o nombre de una linea para buscar.'
-          : `${matchingRoutes.length} lineas encontradas.`}
+            {normalizeText(routeSearch).length < MIN_ROUTE_SEARCH_LENGTH
+              ? 'Escribi el numero o nombre de una linea para buscar.'
+              : `${matchingRoutes.length} lineas encontradas.`}
           </Text>
+        </>
+      )}
 
-          {isLoadingRoute && (
-            <Text style={styles.loadingText}>Cargando detalle de linea...</Text>
-          )}
-        </Card>
-      );
-    }
+      {isLoadingRoute && (
+        <Text style={styles.loadingText}>Cargando detalle de linea...</Text>
+      )}
+    </Card>
+  );
+  }
 
     if (item.type === 'route') {
       const isSelected = item.route.id === selectedRouteId;
@@ -724,7 +757,24 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '900',
   },
+
+  changeRouteButton: {
+  backgroundColor: '#223142',
+  paddingVertical: 12,
+  borderRadius: 16,
+  alignItems: 'center',
+  borderWidth: 1,
+  borderColor: '#263544',
+  marginTop: 12,
+},
+changeRouteButtonText: {
+  color: '#FFFFFF',
+  fontSize: 14,
+  fontWeight: '900',
+},
+
   disabledButton: {
     opacity: 0.5,
   },
 });
+
