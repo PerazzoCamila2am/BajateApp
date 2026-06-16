@@ -21,8 +21,11 @@ import { saveSelectedTransitTrip } from '../../storage/selectedTransitTrip';
 import { AlertMode } from '../../types/trip';
 import { TransitDirection, TransitRoute, TransitStop } from '../../types/transit';
 
+const MIN_ROUTE_SEARCH_LENGTH = 1;
+
 type ListItem =
   | { type: 'routeSearch' }
+  | { type: 'routePrompt' }
   | { type: 'route'; route: TransitRouteIndexItem }
   | { type: 'routeEmpty' }
   | { type: 'directionHeader' }
@@ -50,18 +53,18 @@ export default function RoutesScreen() {
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
 
   const matchingRoutes = useMemo(() => {
-    const search = normalizeText(routeSearch);
+  const search = normalizeText(routeSearch);
 
-    if (!search) {
-      return buenosAiresRouteIndex;
-    }
+  if (search.length < MIN_ROUTE_SEARCH_LENGTH) {
+    return [];
+  }
 
-    return buenosAiresRouteIndex.filter((route) => {
-      return normalizeText(`${route.shortName} ${route.longName}`).includes(
-        search
-      );
-    });
-  }, [routeSearch]);
+  return buenosAiresRouteIndex.filter((route) => {
+    return normalizeText(`${route.shortName} ${route.longName}`).includes(
+      search
+    );
+  });
+}, [routeSearch]);
 
   const selectedDirection = useMemo(() => {
     if (!selectedRoute) {
@@ -111,13 +114,15 @@ export default function RoutesScreen() {
   const listItems = useMemo<ListItem[]>(() => {
     const items: ListItem[] = [{ type: 'routeSearch' }];
 
-    if (matchingRoutes.length === 0) {
-      items.push({ type: 'routeEmpty' });
-    } else {
-      matchingRoutes.forEach((route) => {
-        items.push({ type: 'route', route });
-      });
-    }
+  if (normalizeText(routeSearch).length < MIN_ROUTE_SEARCH_LENGTH) {
+  items.push({ type: 'routePrompt' });
+  } else if (matchingRoutes.length === 0) {
+  items.push({ type: 'routeEmpty' });
+  } else {
+  matchingRoutes.forEach((route) => {
+    items.push({ type: 'route', route });
+  });
+}
 
     if (selectedRoute) {
       items.push({ type: 'directionHeader' });
@@ -144,7 +149,13 @@ export default function RoutesScreen() {
     items.push({ type: 'summary' });
 
     return items;
-  }, [matchingRoutes, matchingStops, selectedDirection, selectedRoute]);
+  }, [
+  matchingRoutes,
+  matchingStops,
+  routeSearch,
+  selectedDirection,
+  selectedRoute,
+]);
 
   async function selectRoute(routeId: string) {
     setIsLoadingRoute(true);
@@ -210,7 +221,9 @@ export default function RoutesScreen() {
           />
 
           <Text style={styles.helperText}>
-            {matchingRoutes.length} lineas encontradas.
+          {normalizeText(routeSearch).length < MIN_ROUTE_SEARCH_LENGTH
+          ? 'Escribi el numero o nombre de una linea para buscar.'
+          : `${matchingRoutes.length} lineas encontradas.`}
           </Text>
 
           {isLoadingRoute && (
@@ -241,6 +254,16 @@ export default function RoutesScreen() {
             paradas
           </Text>
         </Pressable>
+      );
+    }
+
+    if (item.type === 'routePrompt') {
+      return (
+        <Card>
+          <Text style={styles.description}>
+            Busca una linea para empezar. Por ejemplo: 12, 60, 152.
+          </Text>
+        </Card>
       );
     }
 
