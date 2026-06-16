@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
 import { useAudioPlayer } from 'expo-audio';
 import { Vibration } from 'react-native';
 
@@ -75,17 +76,18 @@ export function useTripSimulation({
   const isAlarmActive = tripStatus === 'Alarma activada';
   const isNearDestination = tripStatus === 'Cerca del destino';
 
-  useEffect(() => {
-    let isMounted = true;
+ useFocusEffect(
+  useCallback(() => {
+    let isActive = true;
 
     async function loadSavedPreferences() {
       const preferences = await loadTripPreferences();
 
-      if (!isMounted) {
+      if (!isActive) {
         return;
       }
 
-      if (preferences) {
+      if (preferences && !isSimulating) {
         setAlertMode(preferences.alertMode);
         setSelectedDestinationId(preferences.selectedDestinationId);
         setSelectedDistance(preferences.selectedDistance);
@@ -100,9 +102,10 @@ export function useTripSimulation({
     loadSavedPreferences();
 
     return () => {
-      isMounted = false;
+      isActive = false;
     };
-  }, []);
+  }, [isSimulating])
+);
 
   useEffect(() => {
     if (!hasLoadedPreferences) {

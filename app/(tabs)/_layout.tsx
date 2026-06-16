@@ -16,7 +16,7 @@ export default function TabLayout() {
           paddingBottom: 10,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: '700',
         },
       }}
@@ -26,7 +26,17 @@ export default function TabLayout() {
         options={{
           title: 'Viaje',
           tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: 21 }}>{focused ? '🚌' : '🚏'}</Text>
+            <Text style={{ fontSize: 20 }}>{focused ? '🚌' : '🚏'}</Text>
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="favorites"
+        options={{
+          title: 'Favoritos',
+          tabBarIcon: ({ focused }) => (
+            <Text style={{ fontSize: 20 }}>{focused ? '⭐' : '☆'}</Text>
           ),
         }}
       />
@@ -36,7 +46,7 @@ export default function TabLayout() {
         options={{
           title: 'Mapa',
           tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: 21 }}>{focused ? '🗺️' : '📍'}</Text>
+            <Text style={{ fontSize: 20 }}>{focused ? '🗺️' : '📍'}</Text>
           ),
         }}
       />
@@ -46,7 +56,7 @@ export default function TabLayout() {
         options={{
           title: 'GPS',
           tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: 21 }}>{focused ? '📡' : '📌'}</Text>
+            <Text style={{ fontSize: 20 }}>{focused ? '📡' : '📌'}</Text>
           ),
         }}
       />
@@ -56,7 +66,7 @@ export default function TabLayout() {
         options={{
           title: 'Config',
           tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: 21 }}>{focused ? '⚙️' : '🔔'}</Text>
+            <Text style={{ fontSize: 20 }}>{focused ? '⚙️' : '🔔'}</Text>
           ),
         }}
       />
@@ -66,7 +76,7 @@ export default function TabLayout() {
         options={{
           title: 'Guía',
           tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: 21 }}>{focused ? '💡' : '📘'}</Text>
+            <Text style={{ fontSize: 20 }}>{focused ? '💡' : '📘'}</Text>
           ),
         }}
       />
