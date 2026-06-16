@@ -1,4 +1,4 @@
-import { Tabs } from 'expo-router';
+﻿import { Tabs } from 'expo-router';
 import { Text } from 'react-native';
 
 export default function TabLayout() {
@@ -16,7 +16,7 @@ export default function TabLayout() {
           paddingBottom: 10,
         },
         tabBarLabelStyle: {
-          fontSize: 10,
+          fontSize: 11,
           fontWeight: '700',
         },
       }}
@@ -26,56 +26,21 @@ export default function TabLayout() {
         options={{
           title: 'Viaje',
           tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: 20 }}>{focused ? '🚌' : '🚏'}</Text>
-          ),
-        }}
-      />
-
-    <Tabs.Screen
-      name="routes"
-      options={{
-        title: 'Líneas',
-        tabBarIcon: ({ focused }) => (
-          <Text style={{ fontSize: 20 }}>{focused ? '🚍' : '🚌'}</Text>
-        ),
-      }}
-    />
-    <Tabs.Screen
-      name="realTrip"
-      options={{
-        title: 'Real',
-        tabBarIcon: ({ focused }) => (
-          <Text style={{ fontSize: 20 }}>{focused ? '✅' : '🚍'}</Text>
-        ),
-      }}
-    />
-
-      <Tabs.Screen
-        name="favorites"
-        options={{
-          title: 'Favoritos',
-          tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: 20 }}>{focused ? '⭐' : '☆'}</Text>
+            <Text style={{ fontSize: 18, fontWeight: '900' }}>
+              {focused ? 'V' : 'v'}
+            </Text>
           ),
         }}
       />
 
       <Tabs.Screen
-        name="map"
+        name="routes"
         options={{
-          title: 'Mapa',
+          title: 'Lineas',
           tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: 20 }}>{focused ? '🗺️' : '📍'}</Text>
-          ),
-        }}
-      />
-
-      <Tabs.Screen
-        name="location"
-        options={{
-          title: 'GPS',
-          tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: 20 }}>{focused ? '📡' : '📌'}</Text>
+            <Text style={{ fontSize: 18, fontWeight: '900' }}>
+              {focused ? 'L' : 'l'}
+            </Text>
           ),
         }}
       />
@@ -85,7 +50,9 @@ export default function TabLayout() {
         options={{
           title: 'Config',
           tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: 20 }}>{focused ? '⚙️' : '🔔'}</Text>
+            <Text style={{ fontSize: 18, fontWeight: '900' }}>
+              {focused ? 'C' : 'c'}
+            </Text>
           ),
         }}
       />
@@ -93,9 +60,11 @@ export default function TabLayout() {
       <Tabs.Screen
         name="explore"
         options={{
-          title: 'Guía',
+          title: 'Guia',
           tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: 20 }}>{focused ? '💡' : '📘'}</Text>
+            <Text style={{ fontSize: 18, fontWeight: '900' }}>
+              {focused ? 'G' : 'g'}
+            </Text>
           ),
         }}
       />

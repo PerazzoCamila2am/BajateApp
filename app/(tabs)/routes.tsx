@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '../../components/Card';
 import { OptionButton } from '../../components/OptionButton';
-import { alertDistances, stopAlerts } from '../../data/demoStops';
+import { alertDistances, stopAlerts } from '../../data/alertOptions';
 import { buenosAiresSampleRoutes } from '../../data/transit/buenosAiresSample';
 import { saveSelectedTransitTrip } from '../../storage/selectedTransitTrip';
 import { AlertMode } from '../../types/trip';

@@ -46,18 +46,18 @@ export default function GuideScreen() {
       <View style={styles.infoCard}>
         <Text style={styles.infoTitle}>Versión actual</Text>
         <Text style={styles.infoText}>
-          Esta primera versión usa modo simulación. Todavía no usa GPS real, mapa ni datos reales de transporte.
+          Esta versión ya permite elegir líneas, sentidos y paradas reales desde datos GTFS procesados de Buenos Aires. El seguimiento del viaje real todavía avanza de forma simulada por paradas.
         </Text>
       </View>
 
       <View style={styles.infoCard}>
         <Text style={styles.infoTitle}>Próximas mejoras</Text>
 
-        <Text style={styles.bullet}>• Sonido de alarma</Text>
-        <Text style={styles.bullet}>• Notificaciones</Text>
-        <Text style={styles.bullet}>• GPS real</Text>
-        <Text style={styles.bullet}>• Mapa con recorrido</Text>
-        <Text style={styles.bullet}>• Datos reales de colectivos</Text>
+        <Text style={styles.bullet}>• Conectar el viaje real con GPS en primer plano</Text>
+        <Text style={styles.bullet}>• Mostrar mapa real del recorrido GTFS</Text>
+        <Text style={styles.bullet}>• Agregar notificaciones locales</Text>
+        <Text style={styles.bullet}>• Mejorar búsqueda de líneas y paradas</Text>
+        <Text style={styles.bullet}>• Preparar ubicación en segundo plano</Text>
       </View>
     </ScrollView>
   );
