@@ -1,4 +1,4 @@
-﻿import { Tabs } from 'expo-router';
+import { Tabs } from 'expo-router';
 import { Text } from 'react-native';
 
 export default function TabLayout() {
@@ -44,6 +44,18 @@ export default function TabLayout() {
           ),
         }}
       />
+
+      <Tabs.Screen
+        name="map"
+        options={{
+        title: 'Mapa',
+        tabBarIcon: ({ focused }) => (
+          <Text style={{ fontSize: 18, fontWeight: '900' }}>
+            {focused ? 'M' : 'm'}
+          </Text>
+         ),
+      }}
+    />
 
       <Tabs.Screen
         name="settings"
