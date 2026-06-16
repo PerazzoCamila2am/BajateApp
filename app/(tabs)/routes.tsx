@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { router } from 'expo-router';
 import {
+  FlatList,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -15,21 +15,26 @@ import { alertDistances, stopAlerts } from '../../data/alertOptions';
 import { buenosAiresSampleRoutes } from '../../data/transit/buenosAiresSample';
 import { saveSelectedTransitTrip } from '../../storage/selectedTransitTrip';
 import { AlertMode } from '../../types/trip';
+import { TransitDirection, TransitRoute, TransitStop } from '../../types/transit';
 
-const MAX_VISIBLE_ROUTES = 30;
-const MAX_VISIBLE_STOPS = 60;
+type ListItem =
+  | { type: 'routeSearch' }
+  | { type: 'route'; route: TransitRoute }
+  | { type: 'routeEmpty' }
+  | { type: 'directionHeader' }
+  | { type: 'direction'; direction: TransitDirection }
+  | { type: 'stopSearch' }
+  | { type: 'stop'; stop: TransitStop }
+  | { type: 'stopEmpty' }
+  | { type: 'alertSettings' }
+  | { type: 'summary' };
 
 export default function RoutesScreen() {
-  const firstRoute = buenosAiresSampleRoutes[0] ?? null;
-  const firstDirection = firstRoute?.directions[0] ?? null;
-
   const [routeSearch, setRouteSearch] = useState('');
   const [stopSearch, setStopSearch] = useState('');
 
-  const [selectedRouteId, setSelectedRouteId] = useState(firstRoute?.id ?? '');
-  const [selectedDirectionId, setSelectedDirectionId] = useState(
-    firstDirection?.id ?? ''
-  );
+  const [selectedRouteId, setSelectedRouteId] = useState('');
+  const [selectedDirectionId, setSelectedDirectionId] = useState('');
   const [selectedDestinationStopId, setSelectedDestinationStopId] =
     useState('');
 
@@ -46,15 +51,11 @@ export default function RoutesScreen() {
     }
 
     return buenosAiresSampleRoutes.filter((route) => {
-      return normalizeText(
-        `${route.shortName} ${route.longName}`
-      ).includes(search);
+      return normalizeText(`${route.shortName} ${route.longName}`).includes(
+        search
+      );
     });
   }, [routeSearch]);
-
-  const visibleRoutes = useMemo(() => {
-    return matchingRoutes.slice(0, MAX_VISIBLE_ROUTES);
-  }, [matchingRoutes]);
 
   const selectedRoute = useMemo(() => {
     return (
@@ -91,10 +92,6 @@ export default function RoutesScreen() {
     });
   }, [selectedDirection, stopSearch]);
 
-  const visibleStops = useMemo(() => {
-    return matchingStops.slice(0, MAX_VISIBLE_STOPS);
-  }, [matchingStops]);
-
   const destinationStop = useMemo(() => {
     if (!selectedDirection) {
       return null;
@@ -111,6 +108,44 @@ export default function RoutesScreen() {
     selectedRoute !== null &&
     selectedDirection !== null &&
     destinationStop !== null;
+
+  const listItems = useMemo<ListItem[]>(() => {
+    const items: ListItem[] = [{ type: 'routeSearch' }];
+
+    if (matchingRoutes.length === 0) {
+      items.push({ type: 'routeEmpty' });
+    } else {
+      matchingRoutes.forEach((route) => {
+        items.push({ type: 'route', route });
+      });
+    }
+
+    if (selectedRoute) {
+      items.push({ type: 'directionHeader' });
+
+      selectedRoute.directions.forEach((direction) => {
+        items.push({ type: 'direction', direction });
+      });
+    }
+
+    if (selectedDirection) {
+      items.push({ type: 'stopSearch' });
+
+      if (matchingStops.length === 0) {
+        items.push({ type: 'stopEmpty' });
+      } else {
+        matchingStops.forEach((stop) => {
+          items.push({ type: 'stop', stop });
+        });
+      }
+
+      items.push({ type: 'alertSettings' });
+    }
+
+    items.push({ type: 'summary' });
+
+    return items;
+  }, [matchingRoutes, matchingStops, selectedDirection, selectedRoute]);
 
   function selectRoute(routeId: string) {
     const route = buenosAiresSampleRoutes.find((item) => item.id === routeId);
@@ -131,7 +166,7 @@ export default function RoutesScreen() {
 
   async function saveTrip(goToTripScreen = false) {
     if (!selectedRoute || !selectedDirection || !destinationStop) {
-      setSavedMessage('Elegí una línea, un sentido y una parada destino.');
+      setSavedMessage('Elegi una linea, un sentido y una parada destino.');
       return;
     }
 
@@ -155,108 +190,88 @@ export default function RoutesScreen() {
     }
   }
 
-  if (buenosAiresSampleRoutes.length === 0) {
-    return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.title}>Lineas</Text>
-
+  function renderItem({ item }: { item: ListItem }) {
+    if (item.type === 'routeSearch') {
+      return (
         <Card>
-          <Text style={styles.cardTitle}>No hay datos cargados</Text>
-          <Text style={styles.description}>
-            Todavia no se procesaron datos GTFS. Ejecuta el script para generar
-            las lineas reales.
+          <Text style={styles.sectionLabel}>Buscar linea</Text>
+
+          <TextInput
+            value={routeSearch}
+            onChangeText={setRouteSearch}
+            placeholder="Ej: 12, 60, 152..."
+            placeholderTextColor="#6F8193"
+            style={styles.input}
+          />
+
+          <Text style={styles.helperText}>
+            {matchingRoutes.length} lineas encontradas.
           </Text>
         </Card>
-      </View>
-    );
-  }
+      );
+    }
 
-  return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Lineas</Text>
-      <Text style={styles.subtitle}>
-        Busca una linea, elegi el sentido, selecciona tu parada destino y guarda
-        el viaje.
-      </Text>
+    if (item.type === 'route') {
+      const isSelected = item.route.id === selectedRouteId;
 
-      <Card>
-        <Text style={styles.sectionLabel}>Buscar linea</Text>
+      return (
+        <Pressable
+          style={[styles.routeItem, isSelected && styles.selectedItem]}
+          onPress={() => selectRoute(item.route.id)}
+        >
+          <Text style={styles.routeNumber}>
+            Linea {item.route.shortName || 'Sin numero'}
+          </Text>
 
-        <TextInput
-          value={routeSearch}
-          onChangeText={setRouteSearch}
-          placeholder="Ej: 12, 60, 152..."
-          placeholderTextColor="#6F8193"
-          style={styles.input}
-        />
+          <Text style={styles.routeName} numberOfLines={2}>
+            {item.route.longName || 'Sin nombre'}
+          </Text>
+        </Pressable>
+      );
+    }
 
-        <Text style={styles.helperText}>
-          {matchingRoutes.length} lineas encontradas. Mostrando hasta{' '}
-          {MAX_VISIBLE_ROUTES}.
-        </Text>
-
-        <View style={styles.list}>
-          {visibleRoutes.map((route) => {
-            const isSelected = route.id === selectedRouteId;
-
-            return (
-              <Pressable
-                key={route.id}
-                style={[styles.routeItem, isSelected && styles.selectedItem]}
-                onPress={() => selectRoute(route.id)}
-              >
-                <Text style={styles.routeNumber}>
-                  Linea {route.shortName || 'Sin numero'}
-                </Text>
-
-                <Text style={styles.routeName} numberOfLines={2}>
-                  {route.longName || 'Sin nombre'}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        {visibleRoutes.length === 0 && (
+    if (item.type === 'routeEmpty') {
+      return (
+        <Card>
           <Text style={styles.description}>
             No encontramos lineas con esa busqueda.
           </Text>
-        )}
-      </Card>
+        </Card>
+      );
+    }
 
-      {selectedRoute && (
+    if (item.type === 'directionHeader' && selectedRoute) {
+      return (
         <Card>
           <Text style={styles.sectionLabel}>Sentido</Text>
-
           <Text style={styles.selectedRouteTitle}>
             Linea {selectedRoute.shortName}
           </Text>
-
-          <View style={styles.list}>
-            {selectedRoute.directions.map((direction) => {
-              const isSelected = direction.id === selectedDirectionId;
-
-              return (
-                <Pressable
-                  key={direction.id}
-                  style={[
-                    styles.directionItem,
-                    isSelected && styles.selectedItem,
-                  ]}
-                  onPress={() => selectDirection(direction.id)}
-                >
-                  <Text style={styles.directionName}>{direction.name}</Text>
-                  <Text style={styles.helperText}>
-                    {direction.stops.length} paradas
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          <Text style={styles.description}>
+            Elegi el sentido correcto para tu viaje.
+          </Text>
         </Card>
-      )}
+      );
+    }
 
-      {selectedDirection && (
+    if (item.type === 'direction') {
+      const isSelected = item.direction.id === selectedDirectionId;
+
+      return (
+        <Pressable
+          style={[styles.directionItem, isSelected && styles.selectedItem]}
+          onPress={() => selectDirection(item.direction.id)}
+        >
+          <Text style={styles.directionName}>{item.direction.name}</Text>
+          <Text style={styles.helperText}>
+            {item.direction.stops.length} paradas
+          </Text>
+        </Pressable>
+      );
+    }
+
+    if (item.type === 'stopSearch') {
+      return (
         <Card>
           <Text style={styles.sectionLabel}>Parada destino</Text>
 
@@ -269,39 +284,41 @@ export default function RoutesScreen() {
           />
 
           <Text style={styles.helperText}>
-            {matchingStops.length} paradas encontradas. Mostrando hasta{' '}
-            {MAX_VISIBLE_STOPS}.
+            {matchingStops.length} paradas encontradas.
           </Text>
-
-          <View style={styles.list}>
-            {visibleStops.map((stop) => {
-              const isSelected = stop.id === selectedDestinationStopId;
-
-              return (
-                <Pressable
-                  key={stop.id}
-                  style={[styles.stopItem, isSelected && styles.selectedItem]}
-                  onPress={() => {
-                    setSelectedDestinationStopId(stop.id);
-                    setSavedMessage('');
-                  }}
-                >
-                  <Text style={styles.stopName}>{stop.name}</Text>
-                  <Text style={styles.helperText}>Parada {stop.sequence}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          {visibleStops.length === 0 && (
-            <Text style={styles.description}>
-              No encontramos paradas con esa busqueda.
-            </Text>
-          )}
         </Card>
-      )}
+      );
+    }
 
-      {selectedDirection && (
+    if (item.type === 'stop') {
+      const isSelected = item.stop.id === selectedDestinationStopId;
+
+      return (
+        <Pressable
+          style={[styles.stopItem, isSelected && styles.selectedItem]}
+          onPress={() => {
+            setSelectedDestinationStopId(item.stop.id);
+            setSavedMessage('');
+          }}
+        >
+          <Text style={styles.stopName}>{item.stop.name}</Text>
+          <Text style={styles.helperText}>Parada {item.stop.sequence}</Text>
+        </Pressable>
+      );
+    }
+
+    if (item.type === 'stopEmpty') {
+      return (
+        <Card>
+          <Text style={styles.description}>
+            No encontramos paradas con esa busqueda.
+          </Text>
+        </Card>
+      );
+    }
+
+    if (item.type === 'alertSettings') {
+      return (
         <Card>
           <Text style={styles.sectionLabel}>Tipo de aviso</Text>
 
@@ -357,15 +374,19 @@ export default function RoutesScreen() {
             </>
           )}
         </Card>
-      )}
+      );
+    }
 
+    return (
       <Card>
         <Text style={styles.sectionLabel}>Resumen</Text>
 
-        {selectedRoute && (
+        {selectedRoute ? (
           <Text style={styles.summaryText}>
             Linea: {selectedRoute.shortName}
           </Text>
+        ) : (
+          <Text style={styles.description}>Todavia falta elegir una linea.</Text>
         )}
 
         {selectedDirection && (
@@ -414,7 +435,62 @@ export default function RoutesScreen() {
           <Text style={styles.secondaryButtonText}>Guardar e ir a Viaje</Text>
         </Pressable>
       </Card>
-    </ScrollView>
+    );
+  }
+
+  function getItemKey(item: ListItem, index: number) {
+    if (item.type === 'route') {
+      return `route-${item.route.id}`;
+    }
+
+    if (item.type === 'direction') {
+      return `direction-${item.direction.id}`;
+    }
+
+    if (item.type === 'stop') {
+      return `stop-${item.stop.id}`;
+    }
+
+    return `${item.type}-${index}`;
+  }
+
+  if (buenosAiresSampleRoutes.length === 0) {
+    return (
+      <View style={styles.centerContainer}>
+        <Text style={styles.title}>Lineas</Text>
+
+        <Card>
+          <Text style={styles.cardTitle}>No hay datos cargados</Text>
+          <Text style={styles.description}>
+            Todavia no se procesaron datos GTFS. Ejecuta el script para generar
+            las lineas reales.
+          </Text>
+        </Card>
+      </View>
+    );
+  }
+
+  return (
+    <FlatList
+      style={styles.container}
+      contentContainerStyle={styles.content}
+      data={listItems}
+      keyExtractor={getItemKey}
+      renderItem={renderItem}
+      keyboardShouldPersistTaps="handled"
+      initialNumToRender={20}
+      maxToRenderPerBatch={20}
+      windowSize={9}
+      ListHeaderComponent={
+        <View style={styles.header}>
+          <Text style={styles.title}>Lineas</Text>
+          <Text style={styles.subtitle}>
+            Busca una linea, elegi el sentido, selecciona tu parada destino y
+            guarda el viaje.
+          </Text>
+        </View>
+      }
+    />
   );
 }
 
@@ -435,7 +511,10 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingTop: 58,
     paddingBottom: 120,
-    gap: 16,
+    gap: 10,
+  },
+  header: {
+    marginBottom: 6,
   },
   centerContainer: {
     flex: 1,
@@ -453,6 +532,7 @@ const styles = StyleSheet.create({
     color: '#B9C6D3',
     fontSize: 15,
     lineHeight: 22,
+    marginTop: 4,
   },
   cardTitle: {
     color: '#FFFFFF',
@@ -489,10 +569,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 21,
     marginTop: 8,
-  },
-  list: {
-    gap: 8,
-    marginTop: 12,
   },
   routeItem: {
     backgroundColor: '#223142',
