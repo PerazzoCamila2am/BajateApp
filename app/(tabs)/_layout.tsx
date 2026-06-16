@@ -40,6 +40,15 @@ export default function TabLayout() {
         ),
       }}
     />
+    <Tabs.Screen
+      name="realTrip"
+      options={{
+        title: 'Real',
+        tabBarIcon: ({ focused }) => (
+          <Text style={{ fontSize: 20 }}>{focused ? '✅' : '🚍'}</Text>
+        ),
+      }}
+    />
 
       <Tabs.Screen
         name="favorites"
