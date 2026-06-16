@@ -1,15 +1,81 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import * as Location from 'expo-location';
+import { useFocusEffect } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '../../components/Card';
+import { demoStops } from '../../data/demoStops';
+import { loadTripPreferences } from '../../storage/tripPreferences';
+import { TripPreferences } from '../../types/trip';
+import { calculateDistanceInMeters } from '../../utils/distance';
+
+const defaultPreferences: TripPreferences = {
+  alertMode: 'distance',
+  selectedDestinationId: 5,
+  selectedDistance: 300,
+  selectedStopAlert: 1,
+};
 
 export default function LocationScreen() {
+  const [preferences, setPreferences] =
+    useState<TripPreferences>(defaultPreferences);
   const [permissionStatus, setPermissionStatus] = useState('Sin pedir permiso');
   const [currentLocation, setCurrentLocation] =
     useState<Location.LocationObject | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  const selectedDestinationIndex = useMemo(() => {
+    const foundIndex = demoStops.findIndex(
+      (stop) => stop.id === preferences.selectedDestinationId
+    );
+
+    return foundIndex >= 0 ? foundIndex : 4;
+  }, [preferences.selectedDestinationId]);
+
+  const selectedDestination = demoStops[selectedDestinationIndex];
+
+  const distanceToDestination = useMemo(() => {
+    if (!currentLocation) {
+      return null;
+    }
+
+    return calculateDistanceInMeters(
+      {
+        latitude: currentLocation.coords.latitude,
+        longitude: currentLocation.coords.longitude,
+      },
+      {
+        latitude: selectedDestination.latitude,
+        longitude: selectedDestination.longitude,
+      }
+    );
+  }, [currentLocation, selectedDestination.latitude, selectedDestination.longitude]);
+
+  const isInsideDistanceAlert =
+    preferences.alertMode === 'distance' &&
+    distanceToDestination !== null &&
+    distanceToDestination <= preferences.selectedDistance;
+
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      async function loadSavedPreferences() {
+        const savedPreferences = await loadTripPreferences();
+
+        if (isActive && savedPreferences) {
+          setPreferences(savedPreferences);
+        }
+      }
+
+      loadSavedPreferences();
+
+      return () => {
+        isActive = false;
+      };
+    }, [])
+  );
 
   async function getCurrentLocation() {
     try {
@@ -45,17 +111,27 @@ export default function LocationScreen() {
         <Text style={styles.appName}>BajateApp</Text>
         <Text style={styles.title}>GPS real</Text>
         <Text style={styles.subtitle}>
-          Probá si la app puede acceder a tu ubicación actual.
+          Probá la ubicación real y calculá la distancia hasta el destino demo.
         </Text>
       </View>
+
+      <Card>
+        <Text style={styles.label}>Destino elegido</Text>
+        <Text style={styles.mainText}>{selectedDestination.name}</Text>
+
+        <Text style={styles.description}>
+          Este destino se toma desde la última configuración guardada en la
+          pantalla Viaje.
+        </Text>
+      </Card>
 
       <Card>
         <Text style={styles.label}>Estado del permiso</Text>
         <Text style={styles.status}>{permissionStatus}</Text>
 
         <Text style={styles.description}>
-          Esta prueba usa ubicación en primer plano. Es decir, funciona mientras
-          la app está abierta.
+          Esta prueba usa ubicación en primer plano. Funciona mientras la app
+          está abierta.
         </Text>
       </Card>
 
@@ -101,11 +177,6 @@ export default function LocationScreen() {
                 {Math.round(currentLocation.coords.accuracy ?? 0)} m
               </Text>
             </View>
-
-            <Text style={styles.description}>
-              Más adelante esta ubicación se va a usar para calcular distancia
-              real hasta una parada o destino.
-            </Text>
           </>
         ) : (
           <Text style={styles.emptyText}>
@@ -115,10 +186,54 @@ export default function LocationScreen() {
       </Card>
 
       <Card>
+        <Text style={styles.label}>Distancia hasta destino demo</Text>
+
+        {distanceToDestination !== null ? (
+          <>
+            <Text style={styles.bigNumber}>{distanceToDestination} m</Text>
+
+            <Text style={styles.description}>
+              Distancia calculada desde tu ubicación actual hasta{' '}
+              {selectedDestination.name}.
+            </Text>
+
+            {preferences.alertMode === 'distance' ? (
+              <View
+                style={[
+                  styles.alertStatusCard,
+                  isInsideDistanceAlert && styles.alertStatusCardActive,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.alertStatusText,
+                    isInsideDistanceAlert && styles.alertStatusTextActive,
+                  ]}
+                >
+                  {isInsideDistanceAlert
+                    ? 'Estás dentro del rango de aviso'
+                    : `Todavía faltan más de ${preferences.selectedDistance} m`}
+                </Text>
+              </View>
+            ) : (
+              <Text style={styles.description}>
+                Tenés configurado aviso por paradas. Más adelante vamos a
+                conectar el GPS con la parada de aviso.
+              </Text>
+            )}
+          </>
+        ) : (
+          <Text style={styles.emptyText}>
+            Tocá “Usar mi ubicación actual” para calcular la distancia.
+          </Text>
+        )}
+      </Card>
+
+      <Card>
         <Text style={styles.label}>Próximo paso</Text>
         <Text style={styles.description}>
-          Cuando esto funcione, podemos conectar el GPS con el viaje demo para
-          comparar ubicación actual contra una parada destino.
+          Después podemos hacer que el GPS real active la alarma cuando estés
+          dentro del rango configurado.
         </Text>
       </Card>
     </ScrollView>
@@ -160,6 +275,11 @@ const styles = StyleSheet.create({
     color: '#8FA1B3',
     fontSize: 14,
     marginBottom: 8,
+  },
+  mainText: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '800',
   },
   status: {
     color: '#FFFFFF',
@@ -224,5 +344,29 @@ const styles = StyleSheet.create({
     color: '#B8C2CC',
     fontSize: 15,
     lineHeight: 22,
+  },
+  bigNumber: {
+    color: '#FFFFFF',
+    fontSize: 38,
+    fontWeight: '900',
+  },
+  alertStatusCard: {
+    backgroundColor: '#223142',
+    borderRadius: 18,
+    padding: 14,
+    marginTop: 14,
+  },
+  alertStatusCardActive: {
+    backgroundColor: '#3A1F1F',
+    borderWidth: 1,
+    borderColor: '#FF6B6B',
+  },
+  alertStatusText: {
+    color: '#B8C2CC',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  alertStatusTextActive: {
+    color: '#FFD1D1',
   },
 });
