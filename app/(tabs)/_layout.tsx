@@ -16,7 +16,7 @@ export default function TabLayout() {
           paddingBottom: 10,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 11,
           fontWeight: '700',
         },
       }}
@@ -26,7 +26,17 @@ export default function TabLayout() {
         options={{
           title: 'Viaje',
           tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: 22 }}>{focused ? '🚌' : '🚏'}</Text>
+            <Text style={{ fontSize: 21 }}>{focused ? '🚌' : '🚏'}</Text>
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="map"
+        options={{
+          title: 'Mapa',
+          tabBarIcon: ({ focused }) => (
+            <Text style={{ fontSize: 21 }}>{focused ? '🗺️' : '📍'}</Text>
           ),
         }}
       />
@@ -36,7 +46,7 @@ export default function TabLayout() {
         options={{
           title: 'GPS',
           tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: 22 }}>{focused ? '📡' : '📍'}</Text>
+            <Text style={{ fontSize: 21 }}>{focused ? '📡' : '📌'}</Text>
           ),
         }}
       />
@@ -46,7 +56,7 @@ export default function TabLayout() {
         options={{
           title: 'Config',
           tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: 22 }}>{focused ? '⚙️' : '🔔'}</Text>
+            <Text style={{ fontSize: 21 }}>{focused ? '⚙️' : '🔔'}</Text>
           ),
         }}
       />
@@ -56,7 +66,7 @@ export default function TabLayout() {
         options={{
           title: 'Guía',
           tabBarIcon: ({ focused }) => (
-            <Text style={{ fontSize: 22 }}>{focused ? '💡' : '📘'}</Text>
+            <Text style={{ fontSize: 21 }}>{focused ? '💡' : '📘'}</Text>
           ),
         }}
       />
