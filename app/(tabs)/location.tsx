@@ -2,7 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAudioPlayer } from 'expo-audio';
 import * as Location from 'expo-location';
 import { useFocusEffect } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, Vibration, View } from 'react-native';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  Vibration,
+  View,
+} from 'react-native';
 
 import { Card } from '../../components/Card';
 import { demoStops } from '../../data/demoStops';
@@ -24,6 +31,24 @@ const defaultPreferences: TripPreferences = {
 };
 
 const stopAlertRadiusInMeters = 120;
+
+function createDemoLocation(
+  latitude: number,
+  longitude: number
+): Location.LocationObject {
+  return {
+    coords: {
+      latitude,
+      longitude,
+      altitude: null,
+      accuracy: 10,
+      altitudeAccuracy: null,
+      heading: null,
+      speed: null,
+    },
+    timestamp: Date.now(),
+  };
+}
 
 export default function LocationScreen() {
   const alarmPlayer = useAudioPlayer(alarmSound);
@@ -107,6 +132,31 @@ export default function LocationScreen() {
     distanceToAlertStop <= stopAlertRadiusInMeters;
 
   const gpsStatus = getGpsStatus();
+
+  const stopAlarm = useCallback(() => {
+    Vibration.cancel();
+
+    alarmPlayer.pause();
+    alarmPlayer.seekTo(0);
+  }, [alarmPlayer]);
+
+  const activateGpsAlarm = useCallback(() => {
+    setHasTriggeredGpsAlarm(true);
+    setIsTracking(false);
+
+    if (alarmSettings.isVibrationEnabled) {
+      Vibration.vibrate([0, 500, 250, 500, 250, 800]);
+    }
+
+    if (alarmSettings.isSoundEnabled) {
+      alarmPlayer.seekTo(0);
+      alarmPlayer.play();
+    }
+  }, [
+    alarmPlayer,
+    alarmSettings.isSoundEnabled,
+    alarmSettings.isVibrationEnabled,
+  ]);
 
   useFocusEffect(
     useCallback(() => {
@@ -197,7 +247,7 @@ export default function LocationScreen() {
   }, [isTracking]);
 
   useEffect(() => {
-    if (!isTracking || hasTriggeredGpsAlarm) {
+    if (hasTriggeredGpsAlarm) {
       return;
     }
 
@@ -209,32 +259,6 @@ export default function LocationScreen() {
     hasTriggeredGpsAlarm,
     isInsideDistanceAlert,
     isInsideStopAlert,
-    isTracking,
-  ]);
-
-  const stopAlarm = useCallback(() => {
-    Vibration.cancel();
-
-    alarmPlayer.pause();
-    alarmPlayer.seekTo(0);
-  }, [alarmPlayer]);
-
-  const activateGpsAlarm = useCallback(() => {
-    setHasTriggeredGpsAlarm(true);
-    setIsTracking(false);
-
-    if (alarmSettings.isVibrationEnabled) {
-      Vibration.vibrate([0, 500, 250, 500, 250, 800]);
-    }
-
-    if (alarmSettings.isSoundEnabled) {
-      alarmPlayer.seekTo(0);
-      alarmPlayer.play();
-    }
-  }, [
-    alarmPlayer,
-    alarmSettings.isSoundEnabled,
-    alarmSettings.isVibrationEnabled,
   ]);
 
   async function getCurrentLocationOnce() {
@@ -277,6 +301,51 @@ export default function LocationScreen() {
     stopAlarm();
   }
 
+  function simulateFarLocation() {
+    stopAlarm();
+    setHasTriggeredGpsAlarm(false);
+    setIsTracking(false);
+    setErrorMessage('');
+    setPermissionStatus('demo');
+
+    setCurrentLocation(
+      createDemoLocation(
+        selectedDestination.latitude - 0.02,
+        selectedDestination.longitude - 0.02
+      )
+    );
+  }
+
+  function simulateNearDestination() {
+    stopAlarm();
+    setHasTriggeredGpsAlarm(false);
+    setIsTracking(false);
+    setErrorMessage('');
+    setPermissionStatus('demo');
+
+    setCurrentLocation(
+      createDemoLocation(
+        selectedDestination.latitude + 0.0002,
+        selectedDestination.longitude + 0.0002
+      )
+    );
+  }
+
+  function simulateNearAlertStop() {
+    stopAlarm();
+    setHasTriggeredGpsAlarm(false);
+    setIsTracking(false);
+    setErrorMessage('');
+    setPermissionStatus('demo');
+
+    setCurrentLocation(
+      createDemoLocation(
+        alertStop.latitude + 0.0002,
+        alertStop.longitude + 0.0002
+      )
+    );
+  }
+
   function getGpsStatus() {
     if (hasTriggeredGpsAlarm) {
       return 'Alarma GPS activada';
@@ -295,7 +364,7 @@ export default function LocationScreen() {
         <Text style={styles.appName}>BajateApp</Text>
         <Text style={styles.title}>GPS real</Text>
         <Text style={styles.subtitle}>
-          Probá ubicación real y alertas con la app abierta.
+          Probá ubicación real, modo demo GPS y alertas con la app abierta.
         </Text>
       </View>
 
@@ -387,6 +456,31 @@ export default function LocationScreen() {
         </Pressable>
       </View>
 
+      <Card>
+        <Text style={styles.label}>Modo demo GPS</Text>
+        <Text style={styles.description}>
+          Probá el cálculo de distancia y la alarma GPS sin moverte físicamente.
+        </Text>
+
+        <View style={styles.actions}>
+          <Pressable style={styles.secondaryButton} onPress={simulateFarLocation}>
+            <Text style={styles.secondaryButtonText}>Simular lejos</Text>
+          </Pressable>
+
+          <Pressable style={styles.primaryButton} onPress={simulateNearDestination}>
+            <Text style={styles.primaryButtonText}>
+              Simular cerca del destino
+            </Text>
+          </Pressable>
+
+          <Pressable style={styles.secondaryButton} onPress={simulateNearAlertStop}>
+            <Text style={styles.secondaryButtonText}>
+              Simular cerca de parada de aviso
+            </Text>
+          </Pressable>
+        </View>
+      </Card>
+
       {errorMessage.length > 0 && (
         <View style={styles.errorCard}>
           <Text style={styles.errorTitle}>Atención</Text>
@@ -435,7 +529,8 @@ export default function LocationScreen() {
             <Text style={styles.bigNumber}>{distanceToDestination} m</Text>
 
             <Text style={styles.description}>
-              Distancia desde tu ubicación actual hasta {selectedDestination.name}.
+              Distancia desde tu ubicación actual hasta{' '}
+              {selectedDestination.name}.
             </Text>
 
             {preferences.alertMode === 'distance' && (
@@ -460,7 +555,7 @@ export default function LocationScreen() {
           </>
         ) : (
           <Text style={styles.emptyText}>
-            Tocá “Actualizar ubicación una vez” o iniciá seguimiento GPS.
+            Tocá “Actualizar ubicación una vez” o usá el modo demo GPS.
           </Text>
         )}
       </Card>
@@ -498,7 +593,7 @@ export default function LocationScreen() {
             </>
           ) : (
             <Text style={styles.emptyText}>
-              Tocá “Actualizar ubicación una vez” o iniciá seguimiento GPS.
+              Tocá “Actualizar ubicación una vez” o usá el modo demo GPS.
             </Text>
           )}
         </Card>
@@ -507,9 +602,9 @@ export default function LocationScreen() {
       <Card>
         <Text style={styles.label}>Importante</Text>
         <Text style={styles.description}>
-          Este modo usa GPS en primer plano. Para que funcione, la app debe
-          permanecer abierta. Más adelante se puede trabajar ubicación en
-          segundo plano.
+          Este modo usa GPS en primer plano. Para que funcione con ubicación
+          real, la app debe permanecer abierta. El modo demo sirve para probar
+          la alarma sin moverte.
         </Text>
       </Card>
     </ScrollView>
@@ -611,10 +706,12 @@ const styles = StyleSheet.create({
   },
   actions: {
     gap: 10,
+    marginTop: 12,
   },
   primaryButton: {
     backgroundColor: '#5DE2A3',
     paddingVertical: 16,
+    paddingHorizontal: 14,
     borderRadius: 18,
     alignItems: 'center',
   },
@@ -625,10 +722,12 @@ const styles = StyleSheet.create({
     color: '#101820',
     fontSize: 16,
     fontWeight: '800',
+    textAlign: 'center',
   },
   secondaryButton: {
     backgroundColor: '#263544',
     paddingVertical: 16,
+    paddingHorizontal: 14,
     borderRadius: 18,
     alignItems: 'center',
   },
@@ -636,6 +735,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '800',
+    textAlign: 'center',
   },
   errorCard: {
     backgroundColor: '#3A1F1F',
