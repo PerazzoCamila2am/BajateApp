@@ -10,6 +10,7 @@ import {
   loadSelectedTransitTrip,
   SelectedTransitTrip,
 } from '../../storage/selectedTransitTrip';
+import { calculateDistanceInMeters } from '../../utils/distance';
 
 export default function MapScreen() {
   const mapRef = useRef<MapView | null>(null);
@@ -100,6 +101,50 @@ export default function MapScreen() {
     );
   }, [selectedDirection, selectedTrip]);
 
+  const destinationStopIndex = useMemo(() => {
+    if (!selectedDirection || !destinationStop) {
+      return -1;
+    }
+
+    return selectedDirection.stops.findIndex(
+      (stop) => stop.id === destinationStop.id
+    );
+  }, [selectedDirection, destinationStop]);
+
+  const alertStop = useMemo(() => {
+    if (!selectedDirection || !selectedTrip || destinationStopIndex < 0) {
+      return null;
+    }
+
+    if (selectedTrip.alertMode === 'distance') {
+      return destinationStop;
+    }
+
+    const alertStopIndex = Math.max(
+      destinationStopIndex - selectedTrip.selectedStopAlert,
+      0
+    );
+
+    return selectedDirection.stops[alertStopIndex] ?? null;
+  }, [selectedDirection, selectedTrip, destinationStopIndex, destinationStop]);
+
+  const distanceToAlertStop = useMemo(() => {
+    if (!currentLocation || !alertStop) {
+      return null;
+    }
+
+    return calculateDistanceInMeters(
+      {
+        latitude: currentLocation.coords.latitude,
+        longitude: currentLocation.coords.longitude,
+      },
+      {
+        latitude: alertStop.latitude,
+        longitude: alertStop.longitude,
+      }
+    );
+  }, [currentLocation, alertStop]);
+
   const routeCoordinates = useMemo(() => {
     if (!selectedDirection) {
       return [];
@@ -122,15 +167,15 @@ export default function MapScreen() {
     return createMapRegion(routeCoordinates);
   }, [routeCoordinates]);
 
-  function simulateNearDestination() {
-    if (!destinationStop) {
+  function simulateNearAlertStop() {
+    if (!alertStop) {
       return;
     }
 
     const simulatedLocation: Location.LocationObject = {
       coords: {
-        latitude: destinationStop.latitude + 0.0004,
-        longitude: destinationStop.longitude + 0.0004,
+        latitude: alertStop.latitude + 0.0003,
+        longitude: alertStop.longitude + 0.0003,
         altitude: null,
         accuracy: 10,
         altitudeAccuracy: null,
@@ -141,7 +186,7 @@ export default function MapScreen() {
     };
 
     setCurrentLocation(simulatedLocation);
-    setLocationStatus('Modo prueba: ubicacion simulada cerca del destino.');
+    setLocationStatus('Modo prueba: ubicacion simulada cerca del aviso.');
 
     mapRef.current?.animateToRegion(
       {
@@ -205,11 +250,27 @@ export default function MapScreen() {
       edgePadding: {
         top: 90,
         right: 50,
-        bottom: 230,
+        bottom: 250,
         left: 50,
       },
       animated: true,
     });
+  }
+
+  function centerOnAlertStop() {
+    if (!alertStop) {
+      return;
+    }
+
+    mapRef.current?.animateToRegion(
+      {
+        latitude: alertStop.latitude,
+        longitude: alertStop.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      },
+      700
+    );
   }
 
   if (isLoading) {
@@ -221,7 +282,13 @@ export default function MapScreen() {
     );
   }
 
-  if (!selectedTrip || !selectedRoute || !selectedDirection || !destinationStop) {
+  if (
+    !selectedTrip ||
+    !selectedRoute ||
+    !selectedDirection ||
+    !destinationStop ||
+    !alertStop
+  ) {
     return (
       <View style={styles.centerContainer}>
         <Text style={styles.title}>Mapa</Text>
@@ -257,6 +324,17 @@ export default function MapScreen() {
 
         {selectedDirection.stops.map((stop) => {
           const isDestination = stop.id === destinationStop.id;
+          const isAlertStop = stop.id === alertStop.id;
+
+          let pinColor = '#2F80ED';
+
+          if (isDestination) {
+            pinColor = '#5DE2A3';
+          }
+
+          if (isAlertStop) {
+            pinColor = '#FFB020';
+          }
 
           return (
             <Marker
@@ -266,8 +344,14 @@ export default function MapScreen() {
                 longitude: stop.longitude,
               }}
               title={stop.name}
-              description={isDestination ? 'Parada destino' : 'Parada'}
-              pinColor={isDestination ? '#5DE2A3' : '#2F80ED'}
+              description={
+                isDestination
+                  ? 'Parada destino'
+                  : isAlertStop
+                    ? 'Parada de aviso'
+                    : 'Parada'
+              }
+              pinColor={pinColor}
             />
           );
         })}
@@ -280,7 +364,7 @@ export default function MapScreen() {
             }}
             title="Tu ubicacion"
             description="Ubicacion actual aproximada"
-            pinColor="#FFB020"
+            pinColor="#FF5C5C"
           />
         )}
       </MapView>
@@ -290,7 +374,11 @@ export default function MapScreen() {
           <Text style={styles.mapButtonText}>Recorrido</Text>
         </Pressable>
 
-        <Pressable style={styles.mapButton} onPress={simulateNearDestination}>
+        <Pressable style={styles.mapButton} onPress={centerOnAlertStop}>
+          <Text style={styles.mapButtonText}>Aviso</Text>
+        </Pressable>
+
+        <Pressable style={styles.mapButton} onPress={simulateNearAlertStop}>
           <Text style={styles.mapButtonText}>Prueba</Text>
         </Pressable>
 
@@ -299,7 +387,7 @@ export default function MapScreen() {
           onPress={centerOnCurrentLocation}
           disabled={!currentLocation}
         >
-          <Text style={styles.mapButtonText}>Mi ubicacion</Text>
+          <Text style={styles.mapButtonText}>Yo</Text>
         </Pressable>
       </View>
 
@@ -315,6 +403,27 @@ export default function MapScreen() {
           <Text style={styles.destinationName}>{destinationStop.name}</Text>
         </View>
 
+        <View style={styles.alertBox}>
+          <Text style={styles.destinationLabel}>Parada de aviso</Text>
+          <Text style={styles.alertName}>{alertStop.name}</Text>
+
+          {selectedTrip.alertMode === 'distance' ? (
+            <Text style={styles.infoText}>
+              Aviso configurado a {selectedTrip.selectedDistance} m
+            </Text>
+          ) : (
+            <Text style={styles.infoText}>
+              Aviso configurado {selectedTrip.selectedStopAlert} paradas antes
+            </Text>
+          )}
+        </View>
+
+        {distanceToAlertStop !== null && (
+          <Text style={styles.distanceText}>
+            Distancia al aviso: {distanceToAlertStop} m
+          </Text>
+        )}
+
         <Text style={styles.locationStatus}>{locationStatus}</Text>
 
         <Pressable style={styles.realLocationButton} onPress={useRealCurrentLocation}>
@@ -322,8 +431,8 @@ export default function MapScreen() {
         </Pressable>
 
         <Text style={styles.helperText}>
-          Como el recorrido cargado es de Buenos Aires, el modo Prueba sirve para
-          simular que estas cerca del destino aunque estes en otra ciudad.
+          Si no estas en Buenos Aires, usa Prueba para simular que estas cerca
+          de la parada de aviso.
         </Text>
       </View>
     </View>
@@ -381,7 +490,7 @@ const styles = StyleSheet.create({
     left: 16,
     right: 16,
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
   },
   mapButton: {
     flex: 1,
@@ -394,7 +503,7 @@ const styles = StyleSheet.create({
   },
   mapButtonText: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '900',
   },
   disabledButton: {
@@ -448,8 +557,9 @@ const styles = StyleSheet.create({
   },
   infoText: {
     color: '#B9C6D3',
-    fontSize: 14,
+    fontSize: 13,
     marginTop: 4,
+    lineHeight: 18,
   },
   destinationBox: {
     backgroundColor: '#223142',
@@ -465,9 +575,29 @@ const styles = StyleSheet.create({
   },
   destinationName: {
     color: '#5DE2A3',
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '900',
     marginTop: 3,
+  },
+  alertBox: {
+    backgroundColor: '#2B2719',
+    borderRadius: 16,
+    padding: 12,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#FFB020',
+  },
+  alertName: {
+    color: '#FFB020',
+    fontSize: 16,
+    fontWeight: '900',
+    marginTop: 3,
+  },
+  distanceText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '900',
+    marginTop: 10,
   },
   locationStatus: {
     color: '#FFB020',
