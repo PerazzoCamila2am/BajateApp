@@ -12,7 +12,6 @@ import {
 } from 'react-native';
 
 import { Card } from '../../components/Card';
-import { buenosAiresSampleRoutes } from '../../data/transit/buenosAiresSample';
 import {
   defaultAlarmSettings,
   loadAlarmSettings,
@@ -23,6 +22,10 @@ import {
 } from '../../storage/selectedTransitTrip';
 import { AlarmSettings } from '../../types/trip';
 import { calculateDistanceInMeters } from '../../utils/distance';
+import {
+  getStopsWindow,
+  getTransitTripDetails,
+} from '../../utils/transitTripDetails';
 
 type TripStatus =
   | 'Sin viaje activo'
@@ -33,9 +36,7 @@ type TripStatus =
   | 'Viaje detenido';
 
 export default function HomeScreen() {
-  const alarmPlayer = useAudioPlayer(
-    require('../../assets/sounds/alarm.mp3')
-  );
+  const alarmPlayer = useAudioPlayer(require('../../assets/sounds/alarm.mp3'));
 
   const locationSubscriptionRef =
     useRef<Location.LocationSubscription | null>(null);
@@ -82,94 +83,36 @@ export default function HomeScreen() {
     }, [])
   );
 
-  const selectedRoute = useMemo(() => {
-    if (!selectedTrip) {
-      return null;
-    }
-
-    return (
-      buenosAiresSampleRoutes.find((route) => route.id === selectedTrip.routeId) ??
-      null
-    );
+  const tripDetails = useMemo(() => {
+    return getTransitTripDetails(selectedTrip);
   }, [selectedTrip]);
 
-  const selectedDirection = useMemo(() => {
-    if (!selectedRoute || !selectedTrip) {
-      return null;
-    }
-
-    return (
-      selectedRoute.directions.find(
-        (direction) => direction.id === selectedTrip.directionId
-      ) ?? null
-    );
-  }, [selectedRoute, selectedTrip]);
-
-  const destinationStop = useMemo(() => {
-    if (!selectedDirection || !selectedTrip) {
-      return null;
-    }
-
-    return (
-      selectedDirection.stops.find(
-        (stop) => stop.id === selectedTrip.destinationStopId
-      ) ?? null
-    );
-  }, [selectedDirection, selectedTrip]);
-
-  const destinationStopIndex = useMemo(() => {
-    if (!selectedDirection || !destinationStop) {
-      return -1;
-    }
-
-    return selectedDirection.stops.findIndex(
-      (stop) => stop.id === destinationStop.id
-    );
-  }, [selectedDirection, destinationStop]);
-
-  const targetStop = useMemo(() => {
-    if (!selectedDirection || !selectedTrip || destinationStopIndex < 0) {
-      return null;
-    }
-
-    if (selectedTrip.alertMode === 'distance') {
-      return destinationStop;
-    }
-
-    const targetIndex = Math.max(
-      destinationStopIndex - selectedTrip.selectedStopAlert,
-      0
-    );
-
-    return selectedDirection.stops[targetIndex] ?? null;
-  }, [selectedDirection, selectedTrip, destinationStopIndex, destinationStop]);
-
-  const alertDistanceInMeters = useMemo(() => {
-    if (!selectedTrip) {
-      return 300;
-    }
-
-    if (selectedTrip.alertMode === 'distance') {
-      return selectedTrip.selectedDistance;
-    }
-
-    return 120;
-  }, [selectedTrip]);
+  const targetStop = tripDetails?.alertStop ?? null;
+  const alertDistanceInMeters = tripDetails?.alertDistanceInMeters ?? 300;
 
   const stopsUntilDestination = useMemo(() => {
-    if (!selectedDirection || destinationStopIndex < 0 || !targetStop) {
+    if (!tripDetails) {
       return [];
     }
 
-    const targetStopIndex = selectedDirection.stops.findIndex(
-      (stop) => stop.id === targetStop.id
+    return getStopsWindow(
+      tripDetails.selectedDirection,
+      tripDetails.alertStopIndex,
+      tripDetails.destinationStopIndex
     );
+  }, [tripDetails]);
 
-    return selectedDirection.stops.slice(
-      Math.max(targetStopIndex - 2, 0),
-      Math.min(destinationStopIndex + 1, selectedDirection.stops.length)
-    );
-  }, [selectedDirection, destinationStopIndex, targetStop]);
+  const resetAlarm = useCallback(() => {
+    setIsAlarmActive(false);
+    Vibration.cancel();
+
+    try {
+      alarmPlayer.pause();
+      alarmPlayer.seekTo(0);
+    } catch {
+      // Si el sonido no estaba activo, no hacemos nada.
+    }
+  }, [alarmPlayer]);
 
   const activateAlarm = useCallback(() => {
     if (isAlarmActive) {
@@ -193,21 +136,13 @@ export default function HomeScreen() {
     }
   }, [alarmPlayer, alarmSettings, isAlarmActive]);
 
-  const stopAlarm = useCallback(() => {
-    setIsAlarmActive(false);
-    Vibration.cancel();
-
-    try {
-      alarmPlayer.pause();
-      alarmPlayer.seekTo(0);
-    } catch {
-      // Si el sonido no estaba activo, no hacemos nada.
-    }
+  function silenceAlarm() {
+    resetAlarm();
 
     if (isTripActive) {
       setTripStatus('Seguimiento activo');
     }
-  }, [alarmPlayer, isTripActive]);
+  }
 
   const stopTrip = useCallback(() => {
     locationSubscriptionRef.current?.remove();
@@ -217,8 +152,8 @@ export default function HomeScreen() {
     setTripStatus('Viaje detenido');
     setLocationStatus('Seguimiento detenido.');
     setDistanceToTarget(null);
-    stopAlarm();
-  }, [stopAlarm]);
+    resetAlarm();
+  }, [resetAlarm]);
 
   useEffect(() => {
     return () => {
@@ -269,11 +204,11 @@ export default function HomeScreen() {
   ]);
 
   async function startTripWithGps() {
-    if (!selectedTrip || !selectedDirection || !targetStop) {
+    if (!selectedTrip || !tripDetails || !targetStop) {
       return;
     }
 
-    stopAlarm();
+    resetAlarm();
 
     const permission = await Location.requestForegroundPermissionsAsync();
 
@@ -312,12 +247,15 @@ export default function HomeScreen() {
       return;
     }
 
+    locationSubscriptionRef.current?.remove();
+    locationSubscriptionRef.current = null;
+
     const simulatedLocation = createSimulatedLocation(
       targetStop.latitude + 0.02,
       targetStop.longitude + 0.02
     );
 
-    stopAlarm();
+    resetAlarm();
     setIsTripActive(true);
     setCurrentLocation(simulatedLocation);
     setTripStatus('Seguimiento activo');
@@ -329,11 +267,15 @@ export default function HomeScreen() {
       return;
     }
 
+    locationSubscriptionRef.current?.remove();
+    locationSubscriptionRef.current = null;
+
     const simulatedLocation = createSimulatedLocation(
       targetStop.latitude + 0.0003,
       targetStop.longitude + 0.0003
     );
 
+    resetAlarm();
     setIsTripActive(true);
     setCurrentLocation(simulatedLocation);
     setLocationStatus('Modo prueba: estas cerca del aviso.');
@@ -348,7 +290,7 @@ export default function HomeScreen() {
     );
   }
 
-  if (!selectedTrip || !selectedRoute || !selectedDirection || !destinationStop) {
+  if (!selectedTrip || !tripDetails) {
     return (
       <View style={styles.centerContainer}>
         <Text style={styles.title}>BajateApp</Text>
@@ -380,20 +322,24 @@ export default function HomeScreen() {
 
       <Card>
         <Text style={styles.sectionLabel}>Viaje seleccionado</Text>
-        <Text style={styles.routeTitle}>Linea {selectedRoute.shortName}</Text>
-        <Text style={styles.description}>{selectedDirection.name}</Text>
+        <Text style={styles.routeTitle}>
+          Linea {tripDetails.selectedRoute.shortName}
+        </Text>
+        <Text style={styles.description}>
+          {tripDetails.selectedDirection.name}
+        </Text>
 
         <View style={styles.destinationBox}>
           <Text style={styles.smallLabel}>Destino</Text>
-          <Text style={styles.destinationName}>{destinationStop.name}</Text>
+          <Text style={styles.destinationName}>
+            {tripDetails.destinationStop.name}
+          </Text>
         </View>
 
-        {targetStop && (
-          <View style={styles.targetBox}>
-            <Text style={styles.smallLabel}>Parada de aviso</Text>
-            <Text style={styles.targetName}>{targetStop.name}</Text>
-          </View>
-        )}
+        <View style={styles.targetBox}>
+          <Text style={styles.smallLabel}>Parada de aviso</Text>
+          <Text style={styles.targetName}>{tripDetails.alertStop.name}</Text>
+        </View>
       </Card>
 
       <Card>
@@ -410,7 +356,7 @@ export default function HomeScreen() {
         )}
 
         <Text style={styles.description}>
-        {'Para probar sin estar en Buenos Aires, usa el botón "Prueba cerca".'}
+          {'Para probar sin estar en Buenos Aires, usa el boton "Prueba cerca".'}
         </Text>
       </Card>
 
@@ -458,7 +404,7 @@ export default function HomeScreen() {
         </Pressable>
 
         {isAlarmActive && (
-          <Pressable style={styles.alarmButton} onPress={stopAlarm}>
+          <Pressable style={styles.alarmButton} onPress={silenceAlarm}>
             <Text style={styles.alarmButtonText}>Silenciar alarma</Text>
           </Pressable>
         )}
@@ -468,8 +414,8 @@ export default function HomeScreen() {
         <Text style={styles.sectionLabel}>Proximas paradas</Text>
 
         {stopsUntilDestination.map((stop) => {
-          const isTarget = targetStop?.id === stop.id;
-          const isDestination = destinationStop.id === stop.id;
+          const isTarget = tripDetails.alertStop.id === stop.id;
+          const isDestination = tripDetails.destinationStop.id === stop.id;
 
           return (
             <View
