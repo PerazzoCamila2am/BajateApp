@@ -1,5 +1,13 @@
 import { useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { router } from 'expo-router';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
 import { Card } from '../../components/Card';
 import { OptionButton } from '../../components/OptionButton';
@@ -8,184 +16,237 @@ import { buenosAiresSampleRoutes } from '../../data/transit/buenosAiresSample';
 import { saveSelectedTransitTrip } from '../../storage/selectedTransitTrip';
 import { AlertMode } from '../../types/trip';
 
+const MAX_VISIBLE_ROUTES = 30;
+const MAX_VISIBLE_STOPS = 60;
+
 export default function RoutesScreen() {
-  const [selectedRouteId, setSelectedRouteId] = useState(
-    buenosAiresSampleRoutes[0]?.id ?? ''
-  );
+  const firstRoute = buenosAiresSampleRoutes[0] ?? null;
+  const firstDirection = firstRoute?.directions[0] ?? null;
+
+  const [routeSearch, setRouteSearch] = useState('');
+  const [stopSearch, setStopSearch] = useState('');
+
+  const [selectedRouteId, setSelectedRouteId] = useState(firstRoute?.id ?? '');
   const [selectedDirectionId, setSelectedDirectionId] = useState(
-    buenosAiresSampleRoutes[0]?.directions[0]?.id ?? ''
+    firstDirection?.id ?? ''
   );
-  const [selectedDestinationStopId, setSelectedDestinationStopId] = useState('');
+  const [selectedDestinationStopId, setSelectedDestinationStopId] =
+    useState('');
+
   const [alertMode, setAlertMode] = useState<AlertMode>('distance');
-  const [selectedDistance, setSelectedDistance] = useState(300);
-  const [selectedStopAlert, setSelectedStopAlert] = useState(1);
+  const [selectedDistance, setSelectedDistance] = useState(alertDistances[0]);
+  const [selectedStopAlert, setSelectedStopAlert] = useState(stopAlerts[0]);
   const [savedMessage, setSavedMessage] = useState('');
+
+  const matchingRoutes = useMemo(() => {
+    const search = normalizeText(routeSearch);
+
+    if (!search) {
+      return buenosAiresSampleRoutes;
+    }
+
+    return buenosAiresSampleRoutes.filter((route) => {
+      return normalizeText(
+        `${route.shortName} ${route.longName}`
+      ).includes(search);
+    });
+  }, [routeSearch]);
+
+  const visibleRoutes = useMemo(() => {
+    return matchingRoutes.slice(0, MAX_VISIBLE_ROUTES);
+  }, [matchingRoutes]);
 
   const selectedRoute = useMemo(() => {
     return (
       buenosAiresSampleRoutes.find((route) => route.id === selectedRouteId) ??
-      buenosAiresSampleRoutes[0]
+      null
     );
   }, [selectedRouteId]);
 
   const selectedDirection = useMemo(() => {
+    if (!selectedRoute) {
+      return null;
+    }
+
     return (
-      selectedRoute?.directions.find(
+      selectedRoute.directions.find(
         (direction) => direction.id === selectedDirectionId
-      ) ?? selectedRoute?.directions[0]
+      ) ?? null
     );
-  }, [selectedDirectionId, selectedRoute]);
+  }, [selectedRoute, selectedDirectionId]);
 
-  const selectedDestinationStop = useMemo(() => {
-    return selectedDirection?.stops.find(
-      (stop) => stop.id === selectedDestinationStopId
+  const matchingStops = useMemo(() => {
+    if (!selectedDirection) {
+      return [];
+    }
+
+    const search = normalizeText(stopSearch);
+
+    if (!search) {
+      return selectedDirection.stops;
+    }
+
+    return selectedDirection.stops.filter((stop) => {
+      return normalizeText(`${stop.name} ${stop.sequence}`).includes(search);
+    });
+  }, [selectedDirection, stopSearch]);
+
+  const visibleStops = useMemo(() => {
+    return matchingStops.slice(0, MAX_VISIBLE_STOPS);
+  }, [matchingStops]);
+
+  const destinationStop = useMemo(() => {
+    if (!selectedDirection) {
+      return null;
+    }
+
+    return (
+      selectedDirection.stops.find(
+        (stop) => stop.id === selectedDestinationStopId
+      ) ?? null
     );
-  }, [selectedDestinationStopId, selectedDirection]);
+  }, [selectedDirection, selectedDestinationStopId]);
 
-  const visibleStops = selectedDirection?.stops ?? [];
+  const canSaveTrip =
+    selectedRoute !== null &&
+    selectedDirection !== null &&
+    destinationStop !== null;
 
   function selectRoute(routeId: string) {
     const route = buenosAiresSampleRoutes.find((item) => item.id === routeId);
 
-    if (!route) {
-      return;
-    }
-
-    const firstDirection = route.directions[0];
-
-    setSelectedRouteId(route.id);
-    setSelectedDirectionId(firstDirection?.id ?? '');
+    setSelectedRouteId(routeId);
+    setSelectedDirectionId(route?.directions[0]?.id ?? '');
     setSelectedDestinationStopId('');
+    setStopSearch('');
     setSavedMessage('');
   }
 
   function selectDirection(directionId: string) {
     setSelectedDirectionId(directionId);
     setSelectedDestinationStopId('');
+    setStopSearch('');
     setSavedMessage('');
   }
 
-  async function saveTrip() {
-    if (!selectedRoute || !selectedDirection || !selectedDestinationStop) {
+  async function saveTrip(goToTripScreen = false) {
+    if (!selectedRoute || !selectedDirection || !destinationStop) {
       setSavedMessage('Elegí una línea, un sentido y una parada destino.');
       return;
     }
 
     await saveSelectedTransitTrip({
       routeId: selectedRoute.id,
-      routeName: getRouteName(selectedRoute.shortName, selectedRoute.longName),
+      routeName: `${selectedRoute.shortName} ${selectedRoute.longName}`.trim(),
       directionId: selectedDirection.id,
       directionName: selectedDirection.name,
       tripId: selectedDirection.tripId,
-      destinationStopId: selectedDestinationStop.id,
-      destinationStopName: selectedDestinationStop.name,
+      destinationStopId: destinationStop.id,
+      destinationStopName: destinationStop.name,
       alertMode,
       selectedDistance,
       selectedStopAlert,
     });
 
-    setSavedMessage('Viaje real guardado correctamente.');
+    setSavedMessage('Viaje guardado correctamente.');
+
+    if (goToTripScreen) {
+      router.push('/');
+    }
   }
 
   if (buenosAiresSampleRoutes.length === 0) {
     return (
-      <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.appName}>BajateApp</Text>
-          <Text style={styles.title}>Líneas reales</Text>
-          <Text style={styles.subtitle}>
-            Todavía no hay datos GTFS procesados.
-          </Text>
-        </View>
+      <View style={styles.centerContainer}>
+        <Text style={styles.title}>Lineas</Text>
 
         <Card>
-          <Text style={styles.label}>Falta procesar GTFS</Text>
+          <Text style={styles.cardTitle}>No hay datos cargados</Text>
           <Text style={styles.description}>
-            Corré npm run process-gtfs para generar las líneas reales.
+            Todavia no se procesaron datos GTFS. Ejecuta el script para generar
+            las lineas reales.
           </Text>
         </Card>
-      </ScrollView>
+      </View>
     );
   }
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <Text style={styles.appName}>BajateApp</Text>
-        <Text style={styles.title}>Líneas reales</Text>
-        <Text style={styles.subtitle}>
-          Elegí una línea de Buenos Aires, un sentido y tu parada destino.
-        </Text>
-      </View>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Text style={styles.title}>Lineas</Text>
+      <Text style={styles.subtitle}>
+        Busca una linea, elegi el sentido, selecciona tu parada destino y guarda
+        el viaje.
+      </Text>
 
       <Card>
-        <Text style={styles.label}>Línea</Text>
+        <Text style={styles.sectionLabel}>Buscar linea</Text>
 
-        <View style={styles.routesGrid}>
-          {buenosAiresSampleRoutes.map((route) => {
-            const isSelected = selectedRouteId === route.id;
+        <TextInput
+          value={routeSearch}
+          onChangeText={setRouteSearch}
+          placeholder="Ej: 12, 60, 152..."
+          placeholderTextColor="#6F8193"
+          style={styles.input}
+        />
+
+        <Text style={styles.helperText}>
+          {matchingRoutes.length} lineas encontradas. Mostrando hasta{' '}
+          {MAX_VISIBLE_ROUTES}.
+        </Text>
+
+        <View style={styles.list}>
+          {visibleRoutes.map((route) => {
+            const isSelected = route.id === selectedRouteId;
 
             return (
               <Pressable
                 key={route.id}
-                style={[
-                  styles.routeButton,
-                  isSelected && styles.routeButtonSelected,
-                ]}
+                style={[styles.routeItem, isSelected && styles.selectedItem]}
                 onPress={() => selectRoute(route.id)}
               >
-                <Text
-                  style={[
-                    styles.routeButtonText,
-                    isSelected && styles.routeButtonTextSelected,
-                  ]}
-                >
-                  {route.shortName}
+                <Text style={styles.routeNumber}>
+                  Linea {route.shortName || 'Sin numero'}
+                </Text>
+
+                <Text style={styles.routeName} numberOfLines={2}>
+                  {route.longName || 'Sin nombre'}
                 </Text>
               </Pressable>
             );
           })}
         </View>
 
-        {selectedRoute && (
-          <Text style={styles.selectedText}>
-            {getRouteName(selectedRoute.shortName, selectedRoute.longName)}
+        {visibleRoutes.length === 0 && (
+          <Text style={styles.description}>
+            No encontramos lineas con esa busqueda.
           </Text>
         )}
       </Card>
 
       {selectedRoute && (
         <Card>
-          <Text style={styles.label}>Sentido / recorrido</Text>
+          <Text style={styles.sectionLabel}>Sentido</Text>
 
-          <View style={styles.optionsColumn}>
+          <Text style={styles.selectedRouteTitle}>
+            Linea {selectedRoute.shortName}
+          </Text>
+
+          <View style={styles.list}>
             {selectedRoute.directions.map((direction) => {
-              const isSelected = selectedDirectionId === direction.id;
+              const isSelected = direction.id === selectedDirectionId;
 
               return (
                 <Pressable
-                  key={`${direction.id}-${direction.tripId}`}
+                  key={direction.id}
                   style={[
-                    styles.directionButton,
-                    isSelected && styles.directionButtonSelected,
+                    styles.directionItem,
+                    isSelected && styles.selectedItem,
                   ]}
                   onPress={() => selectDirection(direction.id)}
                 >
-                  <Text
-                    style={[
-                      styles.directionTitle,
-                      isSelected && styles.directionTitleSelected,
-                    ]}
-                  >
-                    {direction.name}
-                  </Text>
-
-                  <Text
-                    style={[
-                      styles.directionSubtitle,
-                      isSelected && styles.directionSubtitleSelected,
-                    ]}
-                  >
+                  <Text style={styles.directionName}>{direction.name}</Text>
+                  <Text style={styles.helperText}>
                     {direction.stops.length} paradas
                   </Text>
                 </Pressable>
@@ -197,344 +258,354 @@ export default function RoutesScreen() {
 
       {selectedDirection && (
         <Card>
-          <Text style={styles.label}>Parada destino</Text>
-          <Text style={styles.description}>
-            Seleccioná dónde querés que termine tu viaje.
+          <Text style={styles.sectionLabel}>Parada destino</Text>
+
+          <TextInput
+            value={stopSearch}
+            onChangeText={setStopSearch}
+            placeholder="Buscar parada por nombre..."
+            placeholderTextColor="#6F8193"
+            style={styles.input}
+          />
+
+          <Text style={styles.helperText}>
+            {matchingStops.length} paradas encontradas. Mostrando hasta{' '}
+            {MAX_VISIBLE_STOPS}.
           </Text>
 
-          <View style={styles.stopsList}>
-            {visibleStops.map((stop, index) => {
-              const isSelected = selectedDestinationStopId === stop.id;
+          <View style={styles.list}>
+            {visibleStops.map((stop) => {
+              const isSelected = stop.id === selectedDestinationStopId;
 
               return (
                 <Pressable
-                  key={`${stop.id}-${index}`}
-                  style={[
-                    styles.stopButton,
-                    isSelected && styles.stopButtonSelected,
-                  ]}
+                  key={stop.id}
+                  style={[styles.stopItem, isSelected && styles.selectedItem]}
                   onPress={() => {
                     setSelectedDestinationStopId(stop.id);
                     setSavedMessage('');
                   }}
                 >
-                  <View style={styles.stopNumber}>
-                    <Text style={styles.stopNumberText}>{index + 1}</Text>
-                  </View>
-
-                  <View style={styles.stopContent}>
-                    <Text
-                      style={[
-                        styles.stopName,
-                        isSelected && styles.stopNameSelected,
-                      ]}
-                    >
-                      {stop.name}
-                    </Text>
-
-                    <Text
-                      style={[
-                        styles.stopCoords,
-                        isSelected && styles.stopCoordsSelected,
-                      ]}
-                    >
-                      {stop.latitude.toFixed(5)}, {stop.longitude.toFixed(5)}
-                    </Text>
-                  </View>
+                  <Text style={styles.stopName}>{stop.name}</Text>
+                  <Text style={styles.helperText}>Parada {stop.sequence}</Text>
                 </Pressable>
               );
             })}
           </View>
+
+          {visibleStops.length === 0 && (
+            <Text style={styles.description}>
+              No encontramos paradas con esa busqueda.
+            </Text>
+          )}
+        </Card>
+      )}
+
+      {selectedDirection && (
+        <Card>
+          <Text style={styles.sectionLabel}>Tipo de aviso</Text>
+
+          <View style={styles.optionRow}>
+            <OptionButton
+              label="Por metros"
+              selected={alertMode === 'distance'}
+              onPress={() => setAlertMode('distance')}
+            />
+
+            <OptionButton
+              label="Por paradas"
+              selected={alertMode === 'stops'}
+              onPress={() => setAlertMode('stops')}
+            />
+          </View>
+
+          {alertMode === 'distance' ? (
+            <>
+              <Text style={styles.subsectionTitle}>
+                Avisarme antes de llegar
+              </Text>
+
+              <View style={styles.compactOptions}>
+                {alertDistances.map((distance) => (
+                  <OptionButton
+                    key={distance}
+                    label={`${distance} m`}
+                    selected={selectedDistance === distance}
+                    onPress={() => setSelectedDistance(distance)}
+                    compact
+                  />
+                ))}
+              </View>
+            </>
+          ) : (
+            <>
+              <Text style={styles.subsectionTitle}>
+                Avisarme paradas antes
+              </Text>
+
+              <View style={styles.compactOptions}>
+                {stopAlerts.map((amount) => (
+                  <OptionButton
+                    key={amount}
+                    label={`${amount}`}
+                    selected={selectedStopAlert === amount}
+                    onPress={() => setSelectedStopAlert(amount)}
+                    compact
+                  />
+                ))}
+              </View>
+            </>
+          )}
         </Card>
       )}
 
       <Card>
-        <Text style={styles.label}>Tipo de aviso</Text>
+        <Text style={styles.sectionLabel}>Resumen</Text>
 
-        <View style={styles.optionsRow}>
-          <OptionButton
-            label="Distancia"
-            selected={alertMode === 'distance'}
-            onPress={() => setAlertMode('distance')}
-          />
-
-          <OptionButton
-            label="Paradas"
-            selected={alertMode === 'stops'}
-            onPress={() => setAlertMode('stops')}
-          />
-        </View>
-      </Card>
-
-      {alertMode === 'distance' && (
-        <Card>
-          <Text style={styles.label}>Avisarme cuando falten</Text>
-
-          <View style={styles.optionsRow}>
-            {alertDistances.map((distance) => (
-              <OptionButton
-                key={distance}
-                label={`${distance} m`}
-                selected={selectedDistance === distance}
-                onPress={() => setSelectedDistance(distance)}
-              />
-            ))}
-          </View>
-        </Card>
-      )}
-
-      {alertMode === 'stops' && (
-        <Card>
-          <Text style={styles.label}>Avisarme antes de llegar</Text>
-
-          <View style={styles.optionsRow}>
-            {stopAlerts.map((amount) => (
-              <OptionButton
-                key={amount}
-                label={`${amount} parada${amount > 1 ? 's' : ''}`}
-                selected={selectedStopAlert === amount}
-                onPress={() => setSelectedStopAlert(amount)}
-              />
-            ))}
-          </View>
-        </Card>
-      )}
-
-      {selectedDestinationStop && (
-        <Card>
-          <Text style={styles.label}>Resumen</Text>
-
-          <Text style={styles.summaryTitle}>
-            Línea {selectedRoute.shortName} · {selectedDestinationStop.name}
+        {selectedRoute && (
+          <Text style={styles.summaryText}>
+            Linea: {selectedRoute.shortName}
           </Text>
+        )}
 
-          <Text style={styles.description}>
+        {selectedDirection && (
+          <Text style={styles.summaryText}>
             Sentido: {selectedDirection.name}
           </Text>
+        )}
 
-          <Text style={styles.description}>
-            Aviso:{' '}
-            {alertMode === 'distance'
-              ? `${selectedDistance} m antes`
-              : `${selectedStopAlert} parada(s) antes`}
+        {destinationStop ? (
+          <Text style={styles.summaryDestination}>
+            Destino: {destinationStop.name}
           </Text>
-        </Card>
-      )}
+        ) : (
+          <Text style={styles.description}>
+            Todavia falta elegir una parada destino.
+          </Text>
+        )}
 
-      <Pressable style={styles.primaryButton} onPress={saveTrip}>
-        <Text style={styles.primaryButtonText}>Guardar viaje real</Text>
-      </Pressable>
+        {alertMode === 'distance' ? (
+          <Text style={styles.summaryText}>
+            Aviso: {selectedDistance} metros antes
+          </Text>
+        ) : (
+          <Text style={styles.summaryText}>
+            Aviso: {selectedStopAlert} paradas antes
+          </Text>
+        )}
 
-      {savedMessage.length > 0 && (
-        <View
-          style={[
-            styles.messageCard,
-            savedMessage.includes('correctamente') && styles.successCard,
-          ]}
+        {savedMessage.length > 0 && (
+          <Text style={styles.savedMessage}>{savedMessage}</Text>
+        )}
+
+        <Pressable
+          style={[styles.primaryButton, !canSaveTrip && styles.disabledButton]}
+          onPress={() => saveTrip(false)}
+          disabled={!canSaveTrip}
         >
-          <Text style={styles.messageText}>{savedMessage}</Text>
-        </View>
-      )}
+          <Text style={styles.primaryButtonText}>Guardar viaje</Text>
+        </Pressable>
 
-      <Card>
-        <Text style={styles.label}>Siguiente paso</Text>
-        <Text style={styles.description}>
-          Después vamos a conectar este viaje real guardado con la pantalla Viaje
-          para iniciar una alarma con paradas reales.
-        </Text>
+        <Pressable
+          style={[styles.secondaryButton, !canSaveTrip && styles.disabledButton]}
+          onPress={() => saveTrip(true)}
+          disabled={!canSaveTrip}
+        >
+          <Text style={styles.secondaryButtonText}>Guardar e ir a Viaje</Text>
+        </Pressable>
       </Card>
     </ScrollView>
   );
 }
 
-function getRouteName(shortName: string, longName: string) {
-  if (!longName || longName === shortName) {
-    return `Línea ${shortName}`;
-  }
-
-  return `Línea ${shortName} · ${longName}`;
+function normalizeText(value: string) {
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
 }
 
 const styles = StyleSheet.create({
-  screen: {
+  container: {
     flex: 1,
     backgroundColor: '#101820',
   },
   content: {
-    padding: 22,
-    gap: 13,
-    paddingBottom: 36,
+    padding: 20,
+    paddingTop: 58,
+    paddingBottom: 120,
+    gap: 16,
   },
-  header: {
-    marginTop: 20,
-    marginBottom: 4,
-  },
-  appName: {
-    color: '#5DE2A3',
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 10,
+  centerContainer: {
+    flex: 1,
+    backgroundColor: '#101820',
+    padding: 20,
+    justifyContent: 'center',
+    gap: 16,
   },
   title: {
     color: '#FFFFFF',
-    fontSize: 32,
-    fontWeight: '800',
-  },
-  subtitle: {
-    color: '#B8C2CC',
-    fontSize: 17,
-    lineHeight: 24,
-    marginTop: 5,
-  },
-  label: {
-    color: '#8FA1B3',
-    fontSize: 14,
-    marginBottom: 8,
-  },
-  description: {
-    color: '#B8C2CC',
-    fontSize: 15,
-    lineHeight: 22,
-    marginTop: 8,
-  },
-  selectedText: {
-    color: '#B8C2CC',
-    fontSize: 14,
-    marginTop: 12,
-  },
-  routesGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  routeButton: {
-    backgroundColor: '#223142',
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    minWidth: 72,
-    alignItems: 'center',
-  },
-  routeButtonSelected: {
-    backgroundColor: '#5DE2A3',
-  },
-  routeButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 34,
     fontWeight: '900',
   },
-  routeButtonTextSelected: {
-    color: '#101820',
+  subtitle: {
+    color: '#B9C6D3',
+    fontSize: 15,
+    lineHeight: 22,
   },
-  optionsColumn: {
-    gap: 10,
-  },
-  directionButton: {
-    backgroundColor: '#223142',
-    borderRadius: 16,
-    padding: 14,
-  },
-  directionButtonSelected: {
-    backgroundColor: '#5DE2A3',
-  },
-  directionTitle: {
+  cardTitle: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 21,
+    fontWeight: '900',
+    marginBottom: 8,
   },
-  directionTitleSelected: {
-    color: '#101820',
+  sectionLabel: {
+    color: '#8FA1B3',
+    fontSize: 12,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    marginBottom: 8,
   },
-  directionSubtitle: {
-    color: '#B8C2CC',
-    fontSize: 13,
-    marginTop: 4,
+  input: {
+    backgroundColor: '#101820',
+    borderColor: '#263544',
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
   },
-  directionSubtitleSelected: {
-    color: '#101820',
+  helperText: {
+    color: '#8FA1B3',
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 6,
   },
-  stopsList: {
+  description: {
+    color: '#B9C6D3',
+    fontSize: 14,
+    lineHeight: 21,
+    marginTop: 8,
+  },
+  list: {
     gap: 8,
     marginTop: 12,
   },
-  stopButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+  routeItem: {
     backgroundColor: '#223142',
     borderRadius: 16,
-    padding: 12,
+    padding: 13,
+    borderWidth: 1,
+    borderColor: '#263544',
   },
-  stopButtonSelected: {
-    backgroundColor: '#5DE2A3',
-  },
-  stopNumber: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#101820',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  stopNumberText: {
+  routeNumber: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 17,
     fontWeight: '900',
   },
-  stopContent: {
-    flex: 1,
+  routeName: {
+    color: '#B9C6D3',
+    fontSize: 13,
+    marginTop: 4,
+    lineHeight: 18,
+  },
+  selectedItem: {
+    backgroundColor: '#183326',
+    borderColor: '#5DE2A3',
+  },
+  selectedRouteTitle: {
+    color: '#FFFFFF',
+    fontSize: 23,
+    fontWeight: '900',
+  },
+  directionItem: {
+    backgroundColor: '#223142',
+    borderRadius: 16,
+    padding: 13,
+    borderWidth: 1,
+    borderColor: '#263544',
+  },
+  directionName: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  stopItem: {
+    backgroundColor: '#223142',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#263544',
   },
   stopName: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '800',
   },
-  stopNameSelected: {
-    color: '#101820',
-  },
-  stopCoords: {
-    color: '#8FA1B3',
-    fontSize: 12,
-    marginTop: 3,
-  },
-  stopCoordsSelected: {
-    color: '#101820',
-  },
-  optionsRow: {
+  optionRow: {
     flexDirection: 'row',
+    gap: 10,
+  },
+  compactOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 10,
     marginTop: 10,
   },
-  summaryTitle: {
+  subsectionTitle: {
     color: '#FFFFFF',
-    fontSize: 20,
+    fontSize: 15,
     fontWeight: '900',
+    marginTop: 16,
+  },
+  summaryText: {
+    color: '#B9C6D3',
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  summaryDestination: {
+    color: '#5DE2A3',
+    fontSize: 16,
+    fontWeight: '900',
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  savedMessage: {
+    color: '#5DE2A3',
+    fontSize: 14,
+    fontWeight: '900',
+    marginTop: 12,
   },
   primaryButton: {
     backgroundColor: '#5DE2A3',
-    paddingVertical: 16,
+    paddingVertical: 15,
     borderRadius: 18,
     alignItems: 'center',
+    marginTop: 16,
   },
   primaryButtonText: {
     color: '#101820',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '900',
   },
-  messageCard: {
-    backgroundColor: '#3A1F1F',
-    borderRadius: 22,
-    padding: 16,
+  secondaryButton: {
+    backgroundColor: '#223142',
+    paddingVertical: 15,
+    borderRadius: 18,
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#FF6B6B',
+    borderColor: '#263544',
+    marginTop: 10,
   },
-  successCard: {
-    backgroundColor: '#123326',
-    borderColor: '#5DE2A3',
-  },
-  messageText: {
+  secondaryButtonText: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '900',
+  },
+  disabledButton: {
+    opacity: 0.5,
   },
 });
