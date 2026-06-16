@@ -1,5 +1,6 @@
-import { useCallback, useMemo, useState } from 'react';
-import { useFocusEffect, router } from 'expo-router';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import * as Location from 'expo-location';
+import { router, useFocusEffect } from 'expo-router';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -11,8 +12,15 @@ import {
 } from '../../storage/selectedTransitTrip';
 
 export default function MapScreen() {
+  const mapRef = useRef<MapView | null>(null);
+
   const [selectedTrip, setSelectedTrip] = useState<SelectedTransitTrip | null>(
     null
+  );
+  const [currentLocation, setCurrentLocation] =
+    useState<Location.LocationObject | null>(null);
+  const [locationStatus, setLocationStatus] = useState(
+    'Buscando tu ubicacion...'
   );
   const [isLoading, setIsLoading] = useState(true);
 
@@ -20,16 +28,36 @@ export default function MapScreen() {
     useCallback(() => {
       let isActive = true;
 
-      async function loadTrip() {
+      async function loadMapData() {
         const trip = await loadSelectedTransitTrip();
 
         if (isActive) {
           setSelectedTrip(trip);
           setIsLoading(false);
         }
+
+        const permission = await Location.requestForegroundPermissionsAsync();
+
+        if (!isActive) {
+          return;
+        }
+
+        if (permission.status !== 'granted') {
+          setLocationStatus('No diste permiso para usar la ubicacion.');
+          return;
+        }
+
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+
+        if (isActive) {
+          setCurrentLocation(location);
+          setLocationStatus('Ubicacion real detectada.');
+        }
       }
 
-      loadTrip();
+      loadMapData();
 
       return () => {
         isActive = false;
@@ -94,6 +122,96 @@ export default function MapScreen() {
     return createMapRegion(routeCoordinates);
   }, [routeCoordinates]);
 
+  function simulateNearDestination() {
+    if (!destinationStop) {
+      return;
+    }
+
+    const simulatedLocation: Location.LocationObject = {
+      coords: {
+        latitude: destinationStop.latitude + 0.0004,
+        longitude: destinationStop.longitude + 0.0004,
+        altitude: null,
+        accuracy: 10,
+        altitudeAccuracy: null,
+        heading: null,
+        speed: null,
+      },
+      timestamp: Date.now(),
+    };
+
+    setCurrentLocation(simulatedLocation);
+    setLocationStatus('Modo prueba: ubicacion simulada cerca del destino.');
+
+    mapRef.current?.animateToRegion(
+      {
+        latitude: simulatedLocation.coords.latitude,
+        longitude: simulatedLocation.coords.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      },
+      700
+    );
+  }
+
+  async function useRealCurrentLocation() {
+    const permission = await Location.requestForegroundPermissionsAsync();
+
+    if (permission.status !== 'granted') {
+      setLocationStatus('No diste permiso para usar la ubicacion.');
+      return;
+    }
+
+    const location = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
+
+    setCurrentLocation(location);
+    setLocationStatus('Ubicacion real actual detectada.');
+
+    mapRef.current?.animateToRegion(
+      {
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      },
+      700
+    );
+  }
+
+  function centerOnCurrentLocation() {
+    if (!currentLocation) {
+      return;
+    }
+
+    mapRef.current?.animateToRegion(
+      {
+        latitude: currentLocation.coords.latitude,
+        longitude: currentLocation.coords.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      },
+      700
+    );
+  }
+
+  function centerOnRoute() {
+    if (routeCoordinates.length === 0) {
+      return;
+    }
+
+    mapRef.current?.fitToCoordinates(routeCoordinates, {
+      edgePadding: {
+        top: 90,
+        right: 50,
+        bottom: 230,
+        left: 50,
+      },
+      animated: true,
+    });
+  }
+
   if (isLoading) {
     return (
       <View style={styles.centerContainer}>
@@ -109,10 +227,10 @@ export default function MapScreen() {
         <Text style={styles.title}>Mapa</Text>
 
         <Card>
-          <Text style={styles.cardTitle}>Todavía no hay viaje seleccionado</Text>
+          <Text style={styles.cardTitle}>Todavia no hay viaje seleccionado</Text>
           <Text style={styles.description}>
-            Primero elegí una línea, un sentido y una parada destino desde la
-            pestaña Lineas.
+            Primero elegi una linea, un sentido y una parada destino desde la
+            pestana Lineas.
           </Text>
 
           <Pressable
@@ -128,7 +246,7 @@ export default function MapScreen() {
 
   return (
     <View style={styles.container}>
-      <MapView style={styles.map} initialRegion={mapRegion}>
+      <MapView ref={mapRef} style={styles.map} initialRegion={mapRegion}>
         {routeCoordinates.length > 1 && (
           <Polyline
             coordinates={routeCoordinates}
@@ -153,14 +271,42 @@ export default function MapScreen() {
             />
           );
         })}
+
+        {currentLocation && (
+          <Marker
+            coordinate={{
+              latitude: currentLocation.coords.latitude,
+              longitude: currentLocation.coords.longitude,
+            }}
+            title="Tu ubicacion"
+            description="Ubicacion actual aproximada"
+            pinColor="#FFB020"
+          />
+        )}
       </MapView>
+
+      <View style={styles.topButtons}>
+        <Pressable style={styles.mapButton} onPress={centerOnRoute}>
+          <Text style={styles.mapButtonText}>Recorrido</Text>
+        </Pressable>
+
+        <Pressable style={styles.mapButton} onPress={simulateNearDestination}>
+          <Text style={styles.mapButtonText}>Prueba</Text>
+        </Pressable>
+
+        <Pressable
+          style={[styles.mapButton, !currentLocation && styles.disabledButton]}
+          onPress={centerOnCurrentLocation}
+          disabled={!currentLocation}
+        >
+          <Text style={styles.mapButtonText}>Mi ubicacion</Text>
+        </Pressable>
+      </View>
 
       <View style={styles.infoPanel}>
         <Text style={styles.smallLabel}>Viaje seleccionado</Text>
 
-        <Text style={styles.routeTitle}>
-          Linea {selectedRoute.shortName}
-        </Text>
+        <Text style={styles.routeTitle}>Linea {selectedRoute.shortName}</Text>
 
         <Text style={styles.infoText}>{selectedDirection.name}</Text>
 
@@ -169,8 +315,15 @@ export default function MapScreen() {
           <Text style={styles.destinationName}>{destinationStop.name}</Text>
         </View>
 
+        <Text style={styles.locationStatus}>{locationStatus}</Text>
+
+        <Pressable style={styles.realLocationButton} onPress={useRealCurrentLocation}>
+          <Text style={styles.realLocationButtonText}>Usar ubicacion real</Text>
+        </Pressable>
+
         <Text style={styles.helperText}>
-          Este mapa usa el recorrido y las paradas reales procesadas desde GTFS.
+          Como el recorrido cargado es de Buenos Aires, el modo Prueba sirve para
+          simular que estas cerca del destino aunque estes en otra ciudad.
         </Text>
       </View>
     </View>
@@ -221,6 +374,31 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  topButtons: {
+    position: 'absolute',
+    top: 56,
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    gap: 10,
+  },
+  mapButton: {
+    flex: 1,
+    backgroundColor: '#17212B',
+    borderRadius: 16,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#263544',
+  },
+  mapButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  disabledButton: {
+    opacity: 0.5,
   },
   infoPanel: {
     position: 'absolute',
@@ -291,10 +469,28 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     marginTop: 3,
   },
+  locationStatus: {
+    color: '#FFB020',
+    fontSize: 12,
+    marginTop: 10,
+    fontWeight: '800',
+  },
+  realLocationButton: {
+    backgroundColor: '#223142',
+    borderRadius: 14,
+    paddingVertical: 10,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  realLocationButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900',
+  },
   helperText: {
     color: '#8FA1B3',
     fontSize: 12,
-    marginTop: 10,
+    marginTop: 8,
     lineHeight: 17,
   },
   primaryButton: {

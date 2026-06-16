@@ -1,7 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAudioPlayer } from 'expo-audio';
-import { useFocusEffect } from 'expo-router';
-import { Pressable, ScrollView, StyleSheet, Text, Vibration, View } from 'react-native';
+import * as Location from 'expo-location';
+import { router, useFocusEffect } from 'expo-router';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  Vibration,
+  View,
+} from 'react-native';
 
 import { Card } from '../../components/Card';
 import { buenosAiresSampleRoutes } from '../../data/transit/buenosAiresSample';
@@ -16,28 +24,62 @@ import {
 import { AlarmSettings } from '../../types/trip';
 import { calculateDistanceInMeters } from '../../utils/distance';
 
-const alarmSound = require('../../assets/sounds/alarm.mp3');
-
-type RealTripStatus =
-  | 'Sin viaje real seleccionado'
-  | 'Listo para iniciar'
-  | 'Viaje real en curso'
-  | 'Cerca del destino'
+type TripStatus =
+  | 'Sin viaje activo'
+  | 'Seguimiento activo'
+  | 'Buscando ubicacion'
+  | 'Cerca del aviso'
   | 'Alarma activada'
-  | 'Destino alcanzado';
+  | 'Viaje detenido';
 
-export default function RealTripScreen() {
-  const alarmPlayer = useAudioPlayer(alarmSound);
+export default function HomeScreen() {
+  const alarmPlayer = useAudioPlayer(
+    require('../../assets/sounds/alarm.mp3')
+  );
+
+  const locationSubscriptionRef =
+    useRef<Location.LocationSubscription | null>(null);
 
   const [selectedTrip, setSelectedTrip] = useState<SelectedTransitTrip | null>(
     null
   );
   const [alarmSettings, setAlarmSettings] =
     useState<AlarmSettings>(defaultAlarmSettings);
-  const [currentStopIndex, setCurrentStopIndex] = useState(0);
-  const [isSimulating, setIsSimulating] = useState(false);
-  const [tripStatus, setTripStatus] = useState<RealTripStatus>(
-    'Sin viaje real seleccionado'
+  const [currentLocation, setCurrentLocation] =
+    useState<Location.LocationObject | null>(null);
+  const [tripStatus, setTripStatus] =
+    useState<TripStatus>('Sin viaje activo');
+  const [locationStatus, setLocationStatus] = useState(
+    'Todavia no se inicio el seguimiento.'
+  );
+  const [distanceToTarget, setDistanceToTarget] = useState<number | null>(null);
+  const [isTripActive, setIsTripActive] = useState(false);
+  const [isAlarmActive, setIsAlarmActive] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      async function loadScreenData() {
+        const [trip, settings] = await Promise.all([
+          loadSelectedTransitTrip(),
+          loadAlarmSettings(),
+        ]);
+
+        if (isActive) {
+          setSelectedTrip(trip);
+          setAlarmSettings(settings);
+          setIsLoading(false);
+        }
+      }
+
+      loadScreenData();
+
+      return () => {
+        isActive = false;
+      };
+    }, [])
   );
 
   const selectedRoute = useMemo(() => {
@@ -58,581 +100,607 @@ export default function RealTripScreen() {
 
     return (
       selectedRoute.directions.find(
-        (direction) => direction.tripId === selectedTrip.tripId
-      ) ??
-      selectedRoute.directions.find(
         (direction) => direction.id === selectedTrip.directionId
-      ) ??
-      null
+      ) ?? null
     );
   }, [selectedRoute, selectedTrip]);
 
-  const destinationStopIndex = useMemo(() => {
+  const destinationStop = useMemo(() => {
     if (!selectedDirection || !selectedTrip) {
+      return null;
+    }
+
+    return (
+      selectedDirection.stops.find(
+        (stop) => stop.id === selectedTrip.destinationStopId
+      ) ?? null
+    );
+  }, [selectedDirection, selectedTrip]);
+
+  const destinationStopIndex = useMemo(() => {
+    if (!selectedDirection || !destinationStop) {
       return -1;
     }
 
     return selectedDirection.stops.findIndex(
-      (stop) => stop.id === selectedTrip.destinationStopId
+      (stop) => stop.id === destinationStop.id
     );
-  }, [selectedDirection, selectedTrip]);
+  }, [selectedDirection, destinationStop]);
 
-  const safeDestinationStopIndex =
-    destinationStopIndex >= 0 ? destinationStopIndex : 0;
-
-  const visibleStops = useMemo(() => {
-    if (!selectedDirection) {
-      return [];
-    }
-
-    return selectedDirection.stops.slice(0, safeDestinationStopIndex + 1);
-  }, [safeDestinationStopIndex, selectedDirection]);
-
-  const currentStop = visibleStops[currentStopIndex] ?? visibleStops[0] ?? null;
-  const destinationStop =
-    visibleStops[safeDestinationStopIndex] ?? visibleStops[visibleStops.length - 1];
-
-  const remainingStops = Math.max(
-    safeDestinationStopIndex - currentStopIndex,
-    0
-  );
-
-  const distanceToDestination = useMemo(() => {
-    if (!currentStop || !destinationStop) {
+  const targetStop = useMemo(() => {
+    if (!selectedDirection || !selectedTrip || destinationStopIndex < 0) {
       return null;
     }
 
-    return calculateDistanceInMeters(
-      {
-        latitude: currentStop.latitude,
-        longitude: currentStop.longitude,
-      },
-      {
-        latitude: destinationStop.latitude,
-        longitude: destinationStop.longitude,
-      }
-    );
-  }, [currentStop, destinationStop]);
-
-  const progressPercent = useMemo(() => {
-    if (safeDestinationStopIndex <= 0) {
-      return 0;
+    if (selectedTrip.alertMode === 'distance') {
+      return destinationStop;
     }
 
-    return Math.round((currentStopIndex / safeDestinationStopIndex) * 100);
-  }, [currentStopIndex, safeDestinationStopIndex]);
+    const targetIndex = Math.max(
+      destinationStopIndex - selectedTrip.selectedStopAlert,
+      0
+    );
 
-  const isAlarmActive = tripStatus === 'Alarma activada';
+    return selectedDirection.stops[targetIndex] ?? null;
+  }, [selectedDirection, selectedTrip, destinationStopIndex, destinationStop]);
 
-  const stopAlarm = useCallback(() => {
-    Vibration.cancel();
+  const alertDistanceInMeters = useMemo(() => {
+    if (!selectedTrip) {
+      return 300;
+    }
 
-    alarmPlayer.pause();
-    alarmPlayer.seekTo(0);
-  }, [alarmPlayer]);
+    if (selectedTrip.alertMode === 'distance') {
+      return selectedTrip.selectedDistance;
+    }
+
+    return 120;
+  }, [selectedTrip]);
+
+  const stopsUntilDestination = useMemo(() => {
+    if (!selectedDirection || destinationStopIndex < 0 || !targetStop) {
+      return [];
+    }
+
+    const targetStopIndex = selectedDirection.stops.findIndex(
+      (stop) => stop.id === targetStop.id
+    );
+
+    return selectedDirection.stops.slice(
+      Math.max(targetStopIndex - 2, 0),
+      Math.min(destinationStopIndex + 1, selectedDirection.stops.length)
+    );
+  }, [selectedDirection, destinationStopIndex, targetStop]);
 
   const activateAlarm = useCallback(() => {
-    setTripStatus('Alarma activada');
-    setIsSimulating(false);
-
-    if (alarmSettings.isVibrationEnabled) {
-      Vibration.vibrate([0, 500, 250, 500, 250, 800]);
+    if (isAlarmActive) {
+      return;
     }
+
+    setIsAlarmActive(true);
+    setTripStatus('Alarma activada');
 
     if (alarmSettings.isSoundEnabled) {
-      alarmPlayer.seekTo(0);
-      alarmPlayer.play();
-    }
-  }, [
-    alarmPlayer,
-    alarmSettings.isSoundEnabled,
-    alarmSettings.isVibrationEnabled,
-  ]);
-
-  useFocusEffect(
-    useCallback(() => {
-      let isActive = true;
-
-      async function loadSavedTrip() {
-        const savedTrip = await loadSelectedTransitTrip();
-        const savedAlarmSettings = await loadAlarmSettings();
-
-        if (!isActive) {
-          return;
-        }
-
-        setAlarmSettings(savedAlarmSettings);
-        setSelectedTrip(savedTrip);
-        setCurrentStopIndex(0);
-        setIsSimulating(false);
-        stopAlarm();
-
-        if (savedTrip) {
-          setTripStatus('Listo para iniciar');
-        } else {
-          setTripStatus('Sin viaje real seleccionado');
-        }
+      try {
+        alarmPlayer.seekTo(0);
+        alarmPlayer.play();
+      } catch {
+        // Si el sonido falla, la app sigue funcionando con vibracion.
       }
+    }
 
-      loadSavedTrip();
+    if (alarmSettings.isVibrationEnabled) {
+      Vibration.vibrate([700, 400, 700, 400], true);
+    }
+  }, [alarmPlayer, alarmSettings, isAlarmActive]);
 
-      return () => {
-        isActive = false;
-      };
-    }, [stopAlarm])
-  );
+  const stopAlarm = useCallback(() => {
+    setIsAlarmActive(false);
+    Vibration.cancel();
+
+    try {
+      alarmPlayer.pause();
+      alarmPlayer.seekTo(0);
+    } catch {
+      // Si el sonido no estaba activo, no hacemos nada.
+    }
+
+    if (isTripActive) {
+      setTripStatus('Seguimiento activo');
+    }
+  }, [alarmPlayer, isTripActive]);
+
+  const stopTrip = useCallback(() => {
+    locationSubscriptionRef.current?.remove();
+    locationSubscriptionRef.current = null;
+
+    setIsTripActive(false);
+    setTripStatus('Viaje detenido');
+    setLocationStatus('Seguimiento detenido.');
+    setDistanceToTarget(null);
+    stopAlarm();
+  }, [stopAlarm]);
 
   useEffect(() => {
-    if (!isSimulating || !selectedTrip || !selectedDirection || !destinationStop) {
+    return () => {
+      locationSubscriptionRef.current?.remove();
+      Vibration.cancel();
+
+      try {
+        alarmPlayer.pause();
+      } catch {
+        // Limpieza segura.
+      }
+    };
+  }, [alarmPlayer]);
+
+  useEffect(() => {
+    if (!isTripActive || !currentLocation || !targetStop || isAlarmActive) {
       return;
     }
 
-    const intervalId = setInterval(() => {
-      setCurrentStopIndex((currentIndex) => {
-        const nextIndex = Math.min(currentIndex + 1, safeDestinationStopIndex);
-        const nextStop = visibleStops[nextIndex];
+    const distance = calculateDistanceInMeters(
+      {
+        latitude: currentLocation.coords.latitude,
+        longitude: currentLocation.coords.longitude,
+      },
+      {
+        latitude: targetStop.latitude,
+        longitude: targetStop.longitude,
+      }
+    );
 
-        if (!nextStop) {
-          setIsSimulating(false);
-          return currentIndex;
-        }
+    setDistanceToTarget(distance);
 
-        const nextRemainingStops = Math.max(
-          safeDestinationStopIndex - nextIndex,
-          0
-        );
+    if (distance <= alertDistanceInMeters) {
+      setTripStatus('Cerca del aviso');
+      activateAlarm();
+      return;
+    }
 
-        const nextDistanceToDestination = calculateDistanceInMeters(
-          {
-            latitude: nextStop.latitude,
-            longitude: nextStop.longitude,
-          },
-          {
-            latitude: destinationStop.latitude,
-            longitude: destinationStop.longitude,
-          }
-        );
-
-        const reachedDistanceAlert =
-          selectedTrip.alertMode === 'distance' &&
-          nextDistanceToDestination <= selectedTrip.selectedDistance;
-
-        const reachedStopsAlert =
-          selectedTrip.alertMode === 'stops' &&
-          nextRemainingStops <= selectedTrip.selectedStopAlert;
-
-        if (reachedDistanceAlert || reachedStopsAlert) {
-          activateAlarm();
-        } else if (
-          selectedTrip.alertMode === 'distance' &&
-          nextDistanceToDestination <= selectedTrip.selectedDistance + 300
-        ) {
-          setTripStatus('Cerca del destino');
-        } else if (nextIndex >= safeDestinationStopIndex) {
-          setTripStatus('Destino alcanzado');
-          setIsSimulating(false);
-        } else {
-          setTripStatus('Viaje real en curso');
-        }
-
-        return nextIndex;
-      });
-    }, 1200);
-
-    return () => clearInterval(intervalId);
+    setTripStatus('Seguimiento activo');
+    setLocationStatus('GPS activo. Todavia no estas cerca del aviso.');
   }, [
+    alertDistanceInMeters,
     activateAlarm,
-    destinationStop,
-    isSimulating,
-    safeDestinationStopIndex,
-    selectedDirection,
-    selectedTrip,
-    visibleStops,
+    currentLocation,
+    isAlarmActive,
+    isTripActive,
+    targetStop,
   ]);
 
-  function startRealTrip() {
-    if (!selectedTrip || !selectedDirection || !destinationStop) {
-      setTripStatus('Sin viaje real seleccionado');
+  async function startTripWithGps() {
+    if (!selectedTrip || !selectedDirection || !targetStop) {
       return;
     }
 
     stopAlarm();
-    setCurrentStopIndex(0);
-    setTripStatus('Viaje real en curso');
-    setIsSimulating(true);
+
+    const permission = await Location.requestForegroundPermissionsAsync();
+
+    if (permission.status !== 'granted') {
+      setLocationStatus('No diste permiso para usar la ubicacion.');
+      setTripStatus('Sin viaje activo');
+      return;
+    }
+
+    setIsTripActive(true);
+    setTripStatus('Buscando ubicacion');
+    setLocationStatus('GPS iniciado. Buscando tu ubicacion...');
+
+    const firstLocation = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.Balanced,
+    });
+
+    setCurrentLocation(firstLocation);
+
+    locationSubscriptionRef.current?.remove();
+
+    locationSubscriptionRef.current = await Location.watchPositionAsync(
+      {
+        accuracy: Location.Accuracy.Balanced,
+        distanceInterval: 15,
+        timeInterval: 5000,
+      },
+      (location) => {
+        setCurrentLocation(location);
+      }
+    );
   }
 
-  function stopRealTrip() {
-    setIsSimulating(false);
-    setCurrentStopIndex(0);
-    setTripStatus(selectedTrip ? 'Listo para iniciar' : 'Sin viaje real seleccionado');
+  function simulateFarFromTarget() {
+    if (!targetStop) {
+      return;
+    }
+
+    const simulatedLocation = createSimulatedLocation(
+      targetStop.latitude + 0.02,
+      targetStop.longitude + 0.02
+    );
+
     stopAlarm();
+    setIsTripActive(true);
+    setCurrentLocation(simulatedLocation);
+    setTripStatus('Seguimiento activo');
+    setLocationStatus('Modo prueba: estas lejos del aviso.');
+  }
+
+  function simulateNearTarget() {
+    if (!targetStop) {
+      return;
+    }
+
+    const simulatedLocation = createSimulatedLocation(
+      targetStop.latitude + 0.0003,
+      targetStop.longitude + 0.0003
+    );
+
+    setIsTripActive(true);
+    setCurrentLocation(simulatedLocation);
+    setLocationStatus('Modo prueba: estas cerca del aviso.');
+  }
+
+  if (isLoading) {
+    return (
+      <View style={styles.centerContainer}>
+        <Text style={styles.title}>BajateApp</Text>
+        <Text style={styles.description}>Cargando viaje...</Text>
+      </View>
+    );
   }
 
   if (!selectedTrip || !selectedRoute || !selectedDirection || !destinationStop) {
     return (
-      <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.appName}>BajateApp</Text>
-          <Text style={styles.title}>Viaje real</Text>
-          <Text style={styles.subtitle}>
-            Primero elegí una línea, sentido y parada destino desde la pestaña Líneas.
-          </Text>
-        </View>
+      <View style={styles.centerContainer}>
+        <Text style={styles.title}>BajateApp</Text>
 
         <Card>
-          <Text style={styles.label}>Sin viaje real seleccionado</Text>
+          <Text style={styles.cardTitle}>No hay viaje seleccionado</Text>
           <Text style={styles.description}>
-            Entrá en Líneas, elegí un recorrido real de Buenos Aires y tocá
-            “Guardar viaje real”.
+            Primero elegi una linea, un sentido y una parada destino desde la
+            pestana Lineas.
           </Text>
+
+          <Pressable
+            style={styles.primaryButton}
+            onPress={() => router.push('/routes')}
+          >
+            <Text style={styles.primaryButtonText}>Elegir linea</Text>
+          </Pressable>
         </Card>
-      </ScrollView>
+      </View>
     );
   }
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <Text style={styles.appName}>BajateApp</Text>
-        <Text style={styles.title}>Viaje real</Text>
-        <Text style={styles.subtitle}>
-          Seguimiento con línea, sentido y paradas reales de Buenos Aires.
-        </Text>
-      </View>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Text style={styles.appName}>BajateApp</Text>
+      <Text style={styles.subtitle}>
+        Seguimiento del viaje seleccionado con GPS y modo prueba.
+      </Text>
 
-      {isAlarmActive && (
-        <View style={styles.alarmCard}>
-          <Text style={styles.alarmEmoji}>🚨</Text>
-          <Text style={styles.alarmTitle}>¡Estás por llegar!</Text>
-          <Text style={styles.alarmText}>
-            Preparáte para bajar en {destinationStop.name}.
-          </Text>
+      <Card>
+        <Text style={styles.sectionLabel}>Viaje seleccionado</Text>
+        <Text style={styles.routeTitle}>Linea {selectedRoute.shortName}</Text>
+        <Text style={styles.description}>{selectedDirection.name}</Text>
 
-          <Pressable style={styles.alarmSilenceButton} onPress={stopAlarm}>
-            <Text style={styles.alarmSilenceButtonText}>Silenciar alarma</Text>
-          </Pressable>
+        <View style={styles.destinationBox}>
+          <Text style={styles.smallLabel}>Destino</Text>
+          <Text style={styles.destinationName}>{destinationStop.name}</Text>
         </View>
-      )}
 
-      <Card>
-        <Text style={styles.label}>Línea real seleccionada</Text>
-        <Text style={styles.mainText}>
-          Línea {selectedRoute.shortName}
-        </Text>
-        <Text style={styles.description}>{selectedRoute.longName}</Text>
+        {targetStop && (
+          <View style={styles.targetBox}>
+            <Text style={styles.smallLabel}>Parada de aviso</Text>
+            <Text style={styles.targetName}>{targetStop.name}</Text>
+          </View>
+        )}
       </Card>
 
       <Card>
-        <Text style={styles.label}>Sentido</Text>
-        <Text style={styles.mainText}>{selectedDirection.name}</Text>
+        <Text style={styles.sectionLabel}>Alerta configurada</Text>
+
+        {selectedTrip.alertMode === 'distance' ? (
+          <Text style={styles.bigText}>
+            Avisar a {selectedTrip.selectedDistance} metros del destino
+          </Text>
+        ) : (
+          <Text style={styles.bigText}>
+            Avisar {selectedTrip.selectedStopAlert} paradas antes
+          </Text>
+        )}
+
         <Text style={styles.description}>
-          {selectedDirection.stops.length} paradas cargadas desde GTFS.
+        {'Para probar sin estar en Buenos Aires, usa el botón "Prueba cerca".'}
         </Text>
       </Card>
 
       <Card>
-        <Text style={styles.label}>Destino</Text>
-        <Text style={styles.mainText}>{destinationStop.name}</Text>
-
-        <Text style={styles.description}>
-          Aviso:{' '}
-          {selectedTrip.alertMode === 'distance'
-            ? `${selectedTrip.selectedDistance} m antes`
-            : `${selectedTrip.selectedStopAlert} parada(s) antes`}
+        <Text style={styles.sectionLabel}>Estado</Text>
+        <Text style={[styles.statusText, isAlarmActive && styles.alarmText]}>
+          {tripStatus}
         </Text>
+
+        <Text style={styles.description}>{locationStatus}</Text>
+
+        {distanceToTarget !== null && (
+          <View style={styles.distanceBox}>
+            <Text style={styles.smallLabel}>Distancia al aviso</Text>
+            <Text style={styles.distanceText}>{distanceToTarget} m</Text>
+          </View>
+        )}
       </Card>
 
       <View style={styles.actions}>
         <Pressable
-          style={[styles.primaryButton, isSimulating && styles.disabledButton]}
-          onPress={startRealTrip}
-          disabled={isSimulating}
+          style={[styles.primaryButton, isTripActive && styles.disabledButton]}
+          onPress={startTripWithGps}
+          disabled={isTripActive}
         >
-          <Text style={styles.primaryButtonText}>
-            {isSimulating ? 'Viaje en curso' : 'Iniciar viaje real'}
-          </Text>
+          <Text style={styles.primaryButtonText}>Iniciar GPS real</Text>
         </Pressable>
 
-        <Pressable style={styles.secondaryButton} onPress={stopRealTrip}>
-          <Text style={styles.secondaryButtonText}>Detener</Text>
+        <Pressable
+          style={styles.secondaryButton}
+          onPress={simulateFarFromTarget}
+        >
+          <Text style={styles.secondaryButtonText}>Prueba lejos</Text>
         </Pressable>
+
+        <Pressable
+          style={styles.secondaryButton}
+          onPress={simulateNearTarget}
+        >
+          <Text style={styles.secondaryButtonText}>Prueba cerca</Text>
+        </Pressable>
+
+        <Pressable style={styles.stopButton} onPress={stopTrip}>
+          <Text style={styles.stopButtonText}>Detener viaje</Text>
+        </Pressable>
+
+        {isAlarmActive && (
+          <Pressable style={styles.alarmButton} onPress={stopAlarm}>
+            <Text style={styles.alarmButtonText}>Silenciar alarma</Text>
+          </Pressable>
+        )}
       </View>
 
       <Card>
-        <View style={styles.rowBetween}>
-          <Text style={styles.label}>Avance</Text>
-          <Text style={styles.progressText}>{progressPercent}%</Text>
-        </View>
+        <Text style={styles.sectionLabel}>Proximas paradas</Text>
 
-        <Text style={styles.bigNumber}>{remainingStops}</Text>
-        <Text style={styles.description}>Paradas restantes hasta destino.</Text>
-
-        <View style={styles.progressBarBackground}>
-          <View
-            style={[styles.progressBarFill, { width: `${progressPercent}%` }]}
-          />
-        </View>
-      </Card>
-
-      <Card>
-        <Text style={styles.label}>Parada actual aproximada</Text>
-        <Text style={styles.mainText}>{currentStop?.name}</Text>
-
-        <Text style={styles.description}>
-          Distancia aproximada al destino:{' '}
-          {distanceToDestination !== null ? `${distanceToDestination} m` : '-'}
-        </Text>
-      </Card>
-
-      <Card>
-        <Text style={styles.label}>Estado</Text>
-        <Text
-          style={[
-            styles.status,
-            isSimulating && styles.statusActive,
-            isAlarmActive && styles.statusAlarm,
-          ]}
-        >
-          {tripStatus}
-        </Text>
-      </Card>
-
-      <Card>
-        <Text style={styles.label}>Recorrido hasta tu destino</Text>
-
-        {visibleStops.map((stop, index) => {
-          const isPast = index <= currentStopIndex;
-          const isCurrent = index === currentStopIndex;
-          const isDestination = index === safeDestinationStopIndex;
-          const isAlertStop =
-            selectedTrip.alertMode === 'stops' &&
-            safeDestinationStopIndex - index === selectedTrip.selectedStopAlert;
+        {stopsUntilDestination.map((stop) => {
+          const isTarget = targetStop?.id === stop.id;
+          const isDestination = destinationStop.id === stop.id;
 
           return (
-            <View key={`${stop.id}-${index}`} style={styles.stopRow}>
-              <Text
-                style={[
-                  styles.stopDot,
-                  isPast && styles.stopDotPast,
-                  isCurrent && styles.stopDotCurrent,
-                  isAlertStop && styles.stopDotAlert,
-                  isDestination && styles.stopDotDestination,
-                ]}
-              >
-                ●
-              </Text>
+            <View
+              key={stop.id}
+              style={[
+                styles.stopItem,
+                isTarget && styles.targetStopItem,
+                isDestination && styles.destinationStopItem,
+              ]}
+            >
+              <Text style={styles.stopName}>{stop.name}</Text>
 
-              <View style={styles.stopContent}>
-                <Text style={styles.stopName}>
-                  {index + 1}. {stop.name}
-                </Text>
-
-                <Text style={styles.stopMeta}>
-                  {isCurrent ? 'Actual · ' : ''}
-                  {isAlertStop ? 'Aviso · ' : ''}
-                  {isDestination ? 'Destino' : ''}
-                </Text>
-              </View>
+              {isTarget && <Text style={styles.stopBadge}>Aviso</Text>}
+              {isDestination && <Text style={styles.stopBadge}>Destino</Text>}
             </View>
           );
         })}
-      </Card>
-
-      <Card>
-        <Text style={styles.label}>Nota</Text>
-        <Text style={styles.description}>
-          Esta pantalla ya usa paradas reales procesadas desde GTFS. El avance
-          todavía está simulado por paradas; el próximo paso es conectarlo con
-          GPS real.
-        </Text>
       </Card>
     </ScrollView>
   );
 }
 
+function createSimulatedLocation(
+  latitude: number,
+  longitude: number
+): Location.LocationObject {
+  return {
+    coords: {
+      latitude,
+      longitude,
+      altitude: null,
+      accuracy: 10,
+      altitudeAccuracy: null,
+      heading: null,
+      speed: null,
+    },
+    timestamp: Date.now(),
+  };
+}
+
 const styles = StyleSheet.create({
-  screen: {
+  container: {
     flex: 1,
     backgroundColor: '#101820',
   },
   content: {
-    padding: 22,
-    gap: 13,
-    paddingBottom: 36,
+    padding: 20,
+    paddingTop: 58,
+    paddingBottom: 120,
+    gap: 16,
   },
-  header: {
-    marginTop: 20,
-    marginBottom: 4,
+  centerContainer: {
+    flex: 1,
+    backgroundColor: '#101820',
+    padding: 20,
+    justifyContent: 'center',
+    gap: 16,
   },
   appName: {
-    color: '#5DE2A3',
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 10,
+    color: '#FFFFFF',
+    fontSize: 34,
+    fontWeight: '900',
   },
   title: {
     color: '#FFFFFF',
-    fontSize: 32,
-    fontWeight: '800',
+    fontSize: 34,
+    fontWeight: '900',
   },
   subtitle: {
-    color: '#B8C2CC',
-    fontSize: 17,
-    lineHeight: 24,
-    marginTop: 5,
+    color: '#B9C6D3',
+    fontSize: 15,
+    lineHeight: 22,
   },
-  alarmCard: {
-    backgroundColor: '#3A1F1F',
-    borderRadius: 24,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: '#FF6B6B',
-    alignItems: 'center',
-  },
-  alarmEmoji: {
-    fontSize: 32,
-    marginBottom: 4,
-  },
-  alarmTitle: {
+  cardTitle: {
     color: '#FFFFFF',
+    fontSize: 21,
+    fontWeight: '900',
+    marginBottom: 8,
+  },
+  sectionLabel: {
+    color: '#8FA1B3',
+    fontSize: 12,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    marginBottom: 8,
+  },
+  smallLabel: {
+    color: '#8FA1B3',
+    fontSize: 12,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+  },
+  routeTitle: {
+    color: '#FFFFFF',
+    fontSize: 25,
+    fontWeight: '900',
+  },
+  description: {
+    color: '#B9C6D3',
+    fontSize: 14,
+    lineHeight: 21,
+    marginTop: 4,
+  },
+  destinationBox: {
+    backgroundColor: '#223142',
+    borderRadius: 16,
+    padding: 12,
+    marginTop: 14,
+  },
+  destinationName: {
+    color: '#5DE2A3',
+    fontSize: 18,
+    fontWeight: '900',
+    marginTop: 4,
+  },
+  targetBox: {
+    backgroundColor: '#1C2A38',
+    borderRadius: 16,
+    padding: 12,
+    marginTop: 10,
+  },
+  targetName: {
+    color: '#FFB020',
+    fontSize: 17,
+    fontWeight: '900',
+    marginTop: 4,
+  },
+  bigText: {
+    color: '#FFFFFF',
+    fontSize: 19,
+    fontWeight: '900',
+    lineHeight: 26,
+  },
+  statusText: {
+    color: '#5DE2A3',
     fontSize: 24,
     fontWeight: '900',
   },
   alarmText: {
-    color: '#FFD1D1',
-    fontSize: 15,
-    textAlign: 'center',
-    marginTop: 6,
+    color: '#FF5C5C',
   },
-  alarmSilenceButton: {
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderRadius: 999,
-    marginTop: 14,
+  distanceBox: {
+    backgroundColor: '#223142',
+    borderRadius: 16,
+    padding: 12,
+    marginTop: 12,
   },
-  alarmSilenceButtonText: {
-    color: '#3A1F1F',
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  label: {
-    color: '#8FA1B3',
-    fontSize: 14,
-    marginBottom: 8,
-  },
-  mainText: {
+  distanceText: {
     color: '#FFFFFF',
-    fontSize: 23,
-    fontWeight: '800',
-  },
-  description: {
-    color: '#B8C2CC',
-    fontSize: 15,
-    lineHeight: 22,
-    marginTop: 8,
+    fontSize: 30,
+    fontWeight: '900',
+    marginTop: 4,
   },
   actions: {
     gap: 10,
   },
   primaryButton: {
     backgroundColor: '#5DE2A3',
-    paddingVertical: 16,
+    paddingVertical: 15,
     borderRadius: 18,
     alignItems: 'center',
-  },
-  disabledButton: {
-    opacity: 0.65,
   },
   primaryButtonText: {
     color: '#101820',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '900',
   },
   secondaryButton: {
-    backgroundColor: '#263544',
-    paddingVertical: 16,
+    backgroundColor: '#223142',
+    paddingVertical: 15,
     borderRadius: 18,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#263544',
   },
   secondaryButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '900',
   },
-  rowBetween: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  stopButton: {
+    backgroundColor: '#331D24',
+    paddingVertical: 15,
+    borderRadius: 18,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#66313E',
+  },
+  stopButtonText: {
+    color: '#FF8FA3',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  alarmButton: {
+    backgroundColor: '#FF5C5C',
+    paddingVertical: 15,
+    borderRadius: 18,
     alignItems: 'center',
   },
-  progressText: {
-    color: '#5DE2A3',
+  alarmButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '900',
+  },
+  disabledButton: {
+    opacity: 0.5,
+  },
+  stopItem: {
+    backgroundColor: '#223142',
+    borderRadius: 14,
+    padding: 12,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#263544',
+  },
+  targetStopItem: {
+    borderColor: '#FFB020',
+  },
+  destinationStopItem: {
+    borderColor: '#5DE2A3',
+  },
+  stopName: {
+    color: '#FFFFFF',
     fontSize: 14,
     fontWeight: '800',
   },
-  bigNumber: {
-    color: '#FFFFFF',
-    fontSize: 42,
-    fontWeight: '900',
-  },
-  progressBarBackground: {
-    height: 10,
-    backgroundColor: '#263544',
-    borderRadius: 999,
-    overflow: 'hidden',
-    marginTop: 14,
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: '#5DE2A3',
-    borderRadius: 999,
-  },
-  status: {
-    color: '#FFFFFF',
-    fontSize: 22,
-    fontWeight: '900',
-  },
-  statusActive: {
-    color: '#5DE2A3',
-  },
-  statusAlarm: {
-    color: '#FF6B6B',
-  },
-  stopRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: 7,
-  },
-  stopDot: {
-    color: '#425466',
-    fontSize: 18,
-    marginRight: 10,
-    marginTop: 1,
-  },
-  stopDotPast: {
-    color: '#5DE2A3',
-  },
-  stopDotCurrent: {
-    color: '#4D96FF',
-  },
-  stopDotAlert: {
-    color: '#F6C85F',
-  },
-  stopDotDestination: {
-    color: '#FF6B6B',
-  },
-  stopContent: {
-    flex: 1,
-  },
-  stopName: {
-    color: '#DCE6F0',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  stopMeta: {
+  stopBadge: {
     color: '#8FA1B3',
     fontSize: 12,
-    marginTop: 3,
+    fontWeight: '900',
+    marginTop: 4,
+    textTransform: 'uppercase',
   },
 });
