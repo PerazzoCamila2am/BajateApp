@@ -1,11 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useAudioPlayer } from 'expo-audio';
-import { simulationSpeedOptions } from '../../data/simulationSpeeds';
+import { useFocusEffect } from 'expo-router';
 import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   Vibration,
   View,
@@ -13,285 +12,374 @@ import {
 
 import { Card } from '../../components/Card';
 import { OptionButton } from '../../components/OptionButton';
+import { alarmSoundOptions, getAlarmSoundSource } from '../../data/alarmSounds';
+import { simulationSpeedOptions } from '../../data/simulationSpeeds';
 import {
   defaultAlarmSettings,
   loadAlarmSettings,
   saveAlarmSettings,
 } from '../../storage/alarmSettings';
-import { AlarmSettings, SimulationSpeed } from '../../types/trip';
-
-const alarmSound = require('../../assets/sounds/alarm.mp3');
+import { AlarmSettings, AlarmSoundId, SimulationSpeed } from '../../types/trip';
 
 export default function SettingsScreen() {
-  const alarmPlayer = useAudioPlayer(alarmSound);
-
-  const [alarmSettings, setAlarmSettings] =
+  const [settings, setSettings] =
     useState<AlarmSettings>(defaultAlarmSettings);
-  const [hasLoadedAlarmSettings, setHasLoadedAlarmSettings] = useState(false);
+  const [statusMessage, setStatusMessage] = useState(
+    'Elegí cómo querés que suene la alarma.'
+  );
 
-  const selectedSimulationSpeed = simulationSpeedOptions.find(
-    (option) => option.value === alarmSettings.simulationSpeed
-  )!;
+  const alarmPlayer = useAudioPlayer(
+    getAlarmSoundSource(settings.alarmSoundId)
+  );
 
-  useEffect(() => {
-    let isMounted = true;
+  const stopPreview = useCallback(() => {
+  Vibration.cancel();
 
-    async function loadSavedAlarmSettings() {
-      const savedSettings = await loadAlarmSettings();
+  try {
+    alarmPlayer.pause();
+    alarmPlayer.seekTo(0);
+    } catch {
+    // Si no hay sonido activo, no hacemos nada.
+    }
+  }, [alarmPlayer]);
 
-      if (!isMounted) {
-        return;
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      async function loadSettings() {
+        const savedSettings = await loadAlarmSettings();
+
+        if (isActive) {
+          setSettings(savedSettings);
+        }
       }
 
-      setAlarmSettings(savedSettings);
-      setHasLoadedAlarmSettings(true);
-    }
+      loadSettings();
 
-    loadSavedAlarmSettings();
+      return () => {
+        isActive = false;
+        stopPreview();
+      };
+    }, [stopPreview])
+  );
 
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!hasLoadedAlarmSettings) {
-      return;
-    }
-
-    saveAlarmSettings(alarmSettings);
-  }, [alarmSettings, hasLoadedAlarmSettings]);
-
-  function updateAlarmSettings(newSettings: Partial<AlarmSettings>) {
-    setAlarmSettings((currentSettings) => ({
-      ...currentSettings,
-      ...newSettings,
-    }));
+  async function updateSettings(newSettings: AlarmSettings) {
+    setSettings(newSettings);
+    await saveAlarmSettings(newSettings);
+    setStatusMessage('Configuracion guardada.');
   }
 
-  function selectSimulationSpeed(speed: SimulationSpeed) {
-    updateAlarmSettings({
-      simulationSpeed: speed,
+
+  function testAlarm() {
+    stopPreview();
+
+    if (settings.isSoundEnabled) {
+      try {
+        alarmPlayer.seekTo(0);
+        alarmPlayer.play();
+      } catch {
+        // Si falla el sonido, probamos vibracion igual.
+      }
+    }
+
+    if (settings.isVibrationEnabled) {
+      Vibration.vibrate([700, 400, 700, 400], true);
+    }
+
+    setStatusMessage('Probando alarma.');
+  }
+
+  function toggleSound() {
+    updateSettings({
+      ...settings,
+      isSoundEnabled: !settings.isSoundEnabled,
     });
   }
 
-  function stopAlarm() {
-    Vibration.cancel();
-
-    alarmPlayer.pause();
-    alarmPlayer.seekTo(0);
+  function toggleVibration() {
+    updateSettings({
+      ...settings,
+      isVibrationEnabled: !settings.isVibrationEnabled,
+    });
   }
 
-  function testAlarm() {
-    if (alarmSettings.isVibrationEnabled) {
-      Vibration.vibrate([0, 500, 250, 500, 250, 800]);
-    }
+  function selectSimulationSpeed(simulationSpeed: SimulationSpeed) {
+    updateSettings({
+      ...settings,
+      simulationSpeed,
+    });
+  }
 
-    if (alarmSettings.isSoundEnabled) {
-      alarmPlayer.seekTo(0);
-      alarmPlayer.play();
-    }
+  function selectAlarmSound(alarmSoundId: AlarmSoundId) {
+    stopPreview();
+
+    updateSettings({
+      ...settings,
+      alarmSoundId,
+    });
   }
 
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <Text style={styles.appName}>BajateApp</Text>
-        <Text style={styles.title}>Configuración</Text>
-        <Text style={styles.subtitle}>
-          Ajustá cómo querés que te avise la app durante el viaje.
-        </Text>
-      </View>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <Text style={styles.title}>Config</Text>
+      <Text style={styles.subtitle}>
+        Personalizá la alarma, la vibración y el sonido de aviso.
+      </Text>
 
       <Card>
-        <Text style={styles.label}>Alarma</Text>
+        <Text style={styles.sectionLabel}>Alarma</Text>
 
         <View style={styles.settingRow}>
-          <View>
+          <View style={styles.settingTextBox}>
             <Text style={styles.settingTitle}>Sonido</Text>
-            <Text style={styles.settingDescription}>
-              Reproducir alarma al llegar al aviso.
+            <Text style={styles.description}>
+              Activa o desactiva el sonido de la alarma.
             </Text>
           </View>
 
-          <Switch
-            value={alarmSettings.isSoundEnabled}
-            onValueChange={(value) =>
-              updateAlarmSettings({ isSoundEnabled: value })
-            }
-            trackColor={{ false: '#263544', true: '#5DE2A3' }}
-            thumbColor="#FFFFFF"
-          />
+          <Pressable
+            style={[
+              styles.switchButton,
+              settings.isSoundEnabled && styles.switchButtonActive,
+            ]}
+            onPress={toggleSound}
+          >
+            <Text
+              style={[
+                styles.switchButtonText,
+                settings.isSoundEnabled && styles.switchButtonTextActive,
+              ]}
+            >
+              {settings.isSoundEnabled ? 'ON' : 'OFF'}
+            </Text>
+          </Pressable>
         </View>
 
-        <View style={styles.settingDivider} />
-
         <View style={styles.settingRow}>
-          <View>
-            <Text style={styles.settingTitle}>Vibración</Text>
-            <Text style={styles.settingDescription}>
-              Vibrar cuando se active la alerta.
+          <View style={styles.settingTextBox}>
+            <Text style={styles.settingTitle}>Vibracion</Text>
+            <Text style={styles.description}>
+              Hace vibrar el celular cuando llega el aviso.
             </Text>
           </View>
 
-          <Switch
-            value={alarmSettings.isVibrationEnabled}
-            onValueChange={(value) =>
-              updateAlarmSettings({ isVibrationEnabled: value })
-            }
-            trackColor={{ false: '#263544', true: '#5DE2A3' }}
-            thumbColor="#FFFFFF"
-          />
+          <Pressable
+            style={[
+              styles.switchButton,
+              settings.isVibrationEnabled && styles.switchButtonActive,
+            ]}
+            onPress={toggleVibration}
+          >
+            <Text
+              style={[
+                styles.switchButtonText,
+                settings.isVibrationEnabled && styles.switchButtonTextActive,
+              ]}
+            >
+              {settings.isVibrationEnabled ? 'ON' : 'OFF'}
+            </Text>
+          </Pressable>
         </View>
       </Card>
 
       <Card>
-        <Text style={styles.label}>Velocidad de simulación</Text>
+        <Text style={styles.sectionLabel}>Sonido de alarma</Text>
 
-        <View style={styles.optionsRow}>
+        <Text style={styles.description}>
+          Elegí qué sonido querés usar cuando se active la alarma.
+        </Text>
+
+        <View style={styles.soundList}>
+          {alarmSoundOptions.map((sound) => {
+            const isSelected = settings.alarmSoundId === sound.value;
+
+            return (
+              <Pressable
+                key={sound.value}
+                style={[styles.soundItem, isSelected && styles.selectedItem]}
+                onPress={() => selectAlarmSound(sound.value)}
+              >
+                <Text style={styles.soundTitle}>{sound.label}</Text>
+                <Text style={styles.description}>{sound.description}</Text>
+
+                {isSelected && (
+                  <Text style={styles.selectedText}>Seleccionado</Text>
+                )}
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <Pressable style={styles.primaryButton} onPress={testAlarm}>
+          <Text style={styles.primaryButtonText}>Probar alarma</Text>
+        </Pressable>
+
+        <Pressable style={styles.secondaryButton} onPress={stopPreview}>
+          <Text style={styles.secondaryButtonText}>Silenciar prueba</Text>
+        </Pressable>
+      </Card>
+
+      <Card>
+        <Text style={styles.sectionLabel}>Modo prueba</Text>
+
+        <Text style={styles.description}>
+          Esta velocidad se usa para simulaciones y pruebas internas.
+        </Text>
+
+        <View style={styles.compactOptions}>
           {simulationSpeedOptions.map((option) => (
             <OptionButton
               key={option.value}
               label={option.label}
-              selected={alarmSettings.simulationSpeed === option.value}
+              selected={settings.simulationSpeed === option.value}
               onPress={() => selectSimulationSpeed(option.value)}
+              compact
             />
           ))}
         </View>
-
-        <Text style={styles.selectedText}>
-          Velocidad elegida: {selectedSimulationSpeed.label}
-        </Text>
       </Card>
 
       <Card>
-        <Text style={styles.label}>Prueba de alarma</Text>
-        <Text style={styles.settingDescription}>
-          Usá estos botones para comprobar sonido y vibración sin esperar la simulación.
-        </Text>
-
-        <View style={styles.settingButtons}>
-          <Pressable style={styles.testButton} onPress={testAlarm}>
-            <Text style={styles.testButtonText}>Probar alarma</Text>
-          </Pressable>
-
-          <Pressable style={styles.silenceButton} onPress={stopAlarm}>
-            <Text style={styles.silenceButtonText}>Silenciar</Text>
-          </Pressable>
-        </View>
-      </Card>
-
-      <Card>
-        <Text style={styles.label}>Guardado automático</Text>
-        <Text style={styles.infoText}>
-          La configuración se guarda automáticamente y se aplica al volver a la pantalla de viaje.
-        </Text>
+        <Text style={styles.sectionLabel}>Estado</Text>
+        <Text style={styles.statusMessage}>{statusMessage}</Text>
       </Card>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
+  container: {
     flex: 1,
     backgroundColor: '#101820',
   },
   content: {
-    padding: 22,
-    gap: 13,
-    paddingBottom: 36,
-  },
-  header: {
-    marginTop: 20,
-    marginBottom: 4,
-  },
-  appName: {
-    color: '#5DE2A3',
-    fontSize: 18,
-    fontWeight: '700',
-    marginBottom: 10,
+    padding: 20,
+    paddingTop: 58,
+    paddingBottom: 120,
+    gap: 16,
   },
   title: {
     color: '#FFFFFF',
-    fontSize: 32,
-    fontWeight: '800',
+    fontSize: 34,
+    fontWeight: '900',
   },
   subtitle: {
-    color: '#B8C2CC',
-    fontSize: 17,
-    lineHeight: 24,
-    marginTop: 5,
+    color: '#B9C6D3',
+    fontSize: 15,
+    lineHeight: 22,
   },
-  label: {
+  sectionLabel: {
     color: '#8FA1B3',
-    fontSize: 14,
+    fontSize: 12,
+    fontWeight: '900',
+    textTransform: 'uppercase',
     marginBottom: 8,
-  },
-  optionsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginTop: 10,
-  },
-  selectedText: {
-    color: '#B8C2CC',
-    fontSize: 14,
-    marginTop: 10,
   },
   settingRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 12,
+    marginTop: 12,
+  },
+  settingTextBox: {
+    flex: 1,
   },
   settingTitle: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 17,
+    fontWeight: '900',
   },
-  settingDescription: {
-    color: '#8FA1B3',
-    fontSize: 13,
+  description: {
+    color: '#B9C6D3',
+    fontSize: 14,
+    lineHeight: 20,
     marginTop: 4,
-    maxWidth: 230,
-    lineHeight: 19,
   },
-  settingDivider: {
-    height: 1,
-    backgroundColor: '#263544',
-    marginVertical: 14,
+  switchButton: {
+    backgroundColor: '#223142',
+    borderRadius: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#263544',
   },
-  settingButtons: {
-    flexDirection: 'row',
+  switchButtonActive: {
+    backgroundColor: '#5DE2A3',
+    borderColor: '#5DE2A3',
+  },
+  switchButtonText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  switchButtonTextActive: {
+    color: '#101820',
+  },
+  soundList: {
     gap: 10,
     marginTop: 14,
   },
-  testButton: {
-    flex: 1,
-    backgroundColor: '#5DE2A3',
-    paddingVertical: 14,
+  soundItem: {
+    backgroundColor: '#223142',
     borderRadius: 16,
-    alignItems: 'center',
+    padding: 13,
+    borderWidth: 1,
+    borderColor: '#263544',
   },
-  testButtonText: {
+  selectedItem: {
+    backgroundColor: '#183326',
+    borderColor: '#5DE2A3',
+  },
+  soundTitle: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '900',
+  },
+  selectedText: {
+    color: '#5DE2A3',
+    fontSize: 12,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    marginTop: 8,
+  },
+  compactOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 14,
+  },
+  primaryButton: {
+    backgroundColor: '#5DE2A3',
+    paddingVertical: 15,
+    borderRadius: 18,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  primaryButtonText: {
     color: '#101820',
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '900',
   },
-  silenceButton: {
-    flex: 1,
-    backgroundColor: '#263544',
-    paddingVertical: 14,
-    borderRadius: 16,
+  secondaryButton: {
+    backgroundColor: '#223142',
+    paddingVertical: 15,
+    borderRadius: 18,
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#263544',
+    marginTop: 10,
   },
-  silenceButtonText: {
+  secondaryButtonText: {
     color: '#FFFFFF',
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '900',
   },
-  infoText: {
-    color: '#B8C2CC',
+  statusMessage: {
+    color: '#5DE2A3',
     fontSize: 15,
+    fontWeight: '900',
     lineHeight: 22,
   },
 });

@@ -8,6 +8,7 @@ export const defaultAlarmSettings: AlarmSettings = {
   isSoundEnabled: true,
   isVibrationEnabled: true,
   simulationSpeed: 'normal',
+  alarmSoundId: 'classic',
 };
 
 export async function saveAlarmSettings(settings: AlarmSettings) {
@@ -29,7 +30,7 @@ export async function loadAlarmSettings() {
 
     return {
       ...defaultAlarmSettings,
-      ...(JSON.parse(jsonValue) as AlarmSettings),
+      ...(JSON.parse(jsonValue) as Partial<AlarmSettings>),
     };
   } catch {
     return defaultAlarmSettings;

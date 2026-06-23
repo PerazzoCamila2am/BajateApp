@@ -5,7 +5,10 @@ import MapView, { Marker, Polyline } from 'react-native-maps';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Card } from '../../components/Card';
-import { loadBuenosAiresRouteDetails } from '../../data/transit/loadBuenosAiresRouteDetails';
+import {
+  getTransitCity,
+  loadTransitRouteDetails,
+} from '../../data/transit/transitCities';
 import {
   loadSelectedTransitTrip,
   SelectedTransitTrip,
@@ -49,7 +52,7 @@ export default function MapScreen() {
           return;
         }
 
-        const routeDetails = await loadBuenosAiresRouteDetails(trip.routeId);
+        const routeDetails = await loadTransitRouteDetails(trip.cityId, trip.routeId);
 
         if (!isActive) {
           return;
@@ -90,6 +93,8 @@ export default function MapScreen() {
   const tripDetails = useMemo(() => {
     return getTransitTripDetails(selectedTrip, selectedRoute);
   }, [selectedTrip, selectedRoute]);
+
+  const selectedCity = selectedTrip ? getTransitCity(selectedTrip.cityId) : null;
 
   const distanceToAlertStop = useMemo(() => {
     if (!currentLocation || !tripDetails) {
@@ -350,6 +355,10 @@ export default function MapScreen() {
 
       <View style={styles.infoPanel}>
         <Text style={styles.smallLabel}>Viaje seleccionado</Text>
+
+        {selectedCity && (
+        <Text style={styles.infoText}>Ciudad: {selectedCity.name}</Text>
+        )}
 
         <Text style={styles.routeTitle}>
           Linea {tripDetails.selectedRoute.shortName}

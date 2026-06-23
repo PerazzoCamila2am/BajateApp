@@ -1,3 +1,5 @@
+export type TransitCityId = 'buenos-aires' | 'rosario';
+
 export type TransitStop = {
   id: string;
   name: string;

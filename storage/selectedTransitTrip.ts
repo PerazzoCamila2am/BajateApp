@@ -1,8 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { AlertMode } from '../types/trip';
+import { TransitCityId } from '../types/transit';
 
 export type SelectedTransitTrip = {
+  cityId: TransitCityId;
   routeId: string;
   routeName: string;
   directionId: string;
@@ -34,7 +36,29 @@ export async function loadSelectedTransitTrip() {
       return null;
     }
 
-    return JSON.parse(jsonValue) as SelectedTransitTrip;
+    const savedTrip = JSON.parse(jsonValue) as Partial<SelectedTransitTrip>;
+
+    if (
+      !savedTrip.routeId ||
+      !savedTrip.directionId ||
+      !savedTrip.destinationStopId
+    ) {
+      return null;
+    }
+
+    return {
+      cityId: savedTrip.cityId ?? 'buenos-aires',
+      routeId: savedTrip.routeId,
+      routeName: savedTrip.routeName ?? '',
+      directionId: savedTrip.directionId,
+      directionName: savedTrip.directionName ?? '',
+      tripId: savedTrip.tripId ?? '',
+      destinationStopId: savedTrip.destinationStopId,
+      destinationStopName: savedTrip.destinationStopName ?? '',
+      alertMode: savedTrip.alertMode ?? 'distance',
+      selectedDistance: savedTrip.selectedDistance ?? 300,
+      selectedStopAlert: savedTrip.selectedStopAlert ?? 1,
+    } as SelectedTransitTrip;
   } catch {
     return null;
   }

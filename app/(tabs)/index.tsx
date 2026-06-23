@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAudioPlayer } from 'expo-audio';
+import { getAlarmSoundSource } from '../../data/alarmSounds';
 import * as Location from 'expo-location';
 import { router, useFocusEffect } from 'expo-router';
 import {
@@ -12,7 +13,10 @@ import {
 } from 'react-native';
 
 import { Card } from '../../components/Card';
-import { loadBuenosAiresRouteDetails } from '../../data/transit/loadBuenosAiresRouteDetails';
+import {
+  getTransitCity,
+  loadTransitRouteDetails,
+} from '../../data/transit/transitCities';
 import {
   defaultAlarmSettings,
   loadAlarmSettings,
@@ -38,7 +42,7 @@ type TripStatus =
   | 'Viaje detenido';
 
 export default function HomeScreen() {
-  const alarmPlayer = useAudioPlayer(require('../../assets/sounds/alarm.mp3'));
+  
 
   const locationSubscriptionRef =
     useRef<Location.LocationSubscription | null>(null);
@@ -49,6 +53,9 @@ export default function HomeScreen() {
   const [selectedRoute, setSelectedRoute] = useState<TransitRoute | null>(null);
   const [alarmSettings, setAlarmSettings] =
     useState<AlarmSettings>(defaultAlarmSettings);
+  const alarmPlayer = useAudioPlayer(
+  getAlarmSoundSource(alarmSettings.alarmSoundId)
+  );
   const [currentLocation, setCurrentLocation] =
     useState<Location.LocationObject | null>(null);
   const [tripStatus, setTripStatus] =
@@ -86,7 +93,7 @@ export default function HomeScreen() {
           return;
         }
 
-        const routeDetails = await loadBuenosAiresRouteDetails(trip.routeId);
+        const routeDetails = await loadTransitRouteDetails(trip.cityId, trip.routeId);
 
         if (isActive) {
           setSelectedRoute(routeDetails);
@@ -105,6 +112,8 @@ export default function HomeScreen() {
   const tripDetails = useMemo(() => {
     return getTransitTripDetails(selectedTrip, selectedRoute);
   }, [selectedTrip, selectedRoute]);
+
+  const selectedCity = selectedTrip ? getTransitCity(selectedTrip.cityId) : null;
 
   const targetStop = tripDetails?.alertStop ?? null;
   const alertDistanceInMeters = tripDetails?.alertDistanceInMeters ?? 300;
@@ -341,6 +350,10 @@ export default function HomeScreen() {
 
       <Card>
         <Text style={styles.sectionLabel}>Viaje seleccionado</Text>
+        {selectedCity && (
+         <Text style={styles.description}>Ciudad: {selectedCity.name}</Text>
+        )}
+        
         <Text style={styles.routeTitle}>
           Linea {tripDetails.selectedRoute.shortName}
         </Text>

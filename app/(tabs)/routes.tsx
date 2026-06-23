@@ -13,17 +13,23 @@ import { Card } from '../../components/Card';
 import { OptionButton } from '../../components/OptionButton';
 import { alertDistances, stopAlerts } from '../../data/alertOptions';
 import {
-  buenosAiresRouteIndex,
+  getTransitCity,
   TransitRouteIndexItem,
-} from '../../data/transit/buenosAiresRouteIndex';
-import { loadBuenosAiresRouteDetails } from '../../data/transit/loadBuenosAiresRouteDetails';
+  transitCities,
+} from '../../data/transit/transitCities';
 import { saveSelectedTransitTrip } from '../../storage/selectedTransitTrip';
 import { AlertMode } from '../../types/trip';
-import { TransitDirection, TransitRoute, TransitStop } from '../../types/transit';
+import {
+  TransitCityId,
+  TransitDirection,
+  TransitRoute,
+  TransitStop,
+} from '../../types/transit';
 
 const MIN_ROUTE_SEARCH_LENGTH = 1;
 
 type ListItem =
+  | { type: 'citySelector' }
   | { type: 'routeSearch' }
   | { type: 'routePrompt' }
   | { type: 'route'; route: TransitRouteIndexItem }
@@ -37,6 +43,13 @@ type ListItem =
   | { type: 'summary' };
 
 export default function RoutesScreen() {
+  const [selectedCityId, setSelectedCityId] =
+    useState<TransitCityId>('buenos-aires');
+
+  const selectedCity = useMemo(() => {
+    return getTransitCity(selectedCityId);
+  }, [selectedCityId]);
+
   const [routeSearch, setRouteSearch] = useState('');
   const [stopSearch, setStopSearch] = useState('');
   const [isRoutePickerOpen, setIsRoutePickerOpen] = useState(true);
@@ -54,18 +67,18 @@ export default function RoutesScreen() {
   const [isLoadingRoute, setIsLoadingRoute] = useState(false);
 
   const matchingRoutes = useMemo(() => {
-  const search = normalizeText(routeSearch);
+    const search = normalizeText(routeSearch);
 
-  if (search.length < MIN_ROUTE_SEARCH_LENGTH) {
-    return [];
-  }
+    if (search.length < MIN_ROUTE_SEARCH_LENGTH) {
+      return [];
+    }
 
-  return buenosAiresRouteIndex.filter((route) => {
-    return normalizeText(`${route.shortName} ${route.longName}`).includes(
-      search
-    );
-  });
-}, [routeSearch]);
+    return selectedCity.routeIndex.filter((route) => {
+      return normalizeText(`${route.shortName} ${route.longName}`).includes(
+        search
+      );
+    });
+  }, [routeSearch, selectedCity]);
 
   const selectedDirection = useMemo(() => {
     if (!selectedRoute) {
@@ -113,19 +126,19 @@ export default function RoutesScreen() {
     destinationStop !== null;
 
   const listItems = useMemo<ListItem[]>(() => {
-    const items: ListItem[] = [{ type: 'routeSearch' }];
+    const items: ListItem[] = [{ type: 'citySelector' }, { type: 'routeSearch' }];
 
-  if (isRoutePickerOpen) {
-    if (normalizeText(routeSearch).length < MIN_ROUTE_SEARCH_LENGTH) {
-      items.push({ type: 'routePrompt' });
-    } else if (matchingRoutes.length === 0) {
-      items.push({ type: 'routeEmpty' });
-    } else {
-      matchingRoutes.forEach((route) => {
-        items.push({ type: 'route', route });
-      });
+    if (isRoutePickerOpen) {
+      if (normalizeText(routeSearch).length < MIN_ROUTE_SEARCH_LENGTH) {
+        items.push({ type: 'routePrompt' });
+      } else if (matchingRoutes.length === 0) {
+        items.push({ type: 'routeEmpty' });
+      } else {
+        matchingRoutes.forEach((route) => {
+          items.push({ type: 'route', route });
+        });
+      }
     }
-  }
 
     if (selectedRoute) {
       items.push({ type: 'directionHeader' });
@@ -161,6 +174,18 @@ export default function RoutesScreen() {
     selectedRoute,
   ]);
 
+  function resetSelectionForCity(cityId: TransitCityId) {
+    setSelectedCityId(cityId);
+    setRouteSearch('');
+    setStopSearch('');
+    setIsRoutePickerOpen(true);
+    setSelectedRouteId('');
+    setSelectedRoute(null);
+    setSelectedDirectionId('');
+    setSelectedDestinationStopId('');
+    setSavedMessage('');
+  }
+
   async function selectRoute(routeId: string) {
     setIsLoadingRoute(true);
     setSavedMessage('');
@@ -171,7 +196,7 @@ export default function RoutesScreen() {
     setSelectedDestinationStopId('');
     setStopSearch('');
 
-    const routeDetails = await loadBuenosAiresRouteDetails(routeId);
+    const routeDetails = await selectedCity.loadRouteDetails(routeId);
 
     setSelectedRoute(routeDetails);
     setSelectedDirectionId(routeDetails?.directions[0]?.id ?? '');
@@ -192,6 +217,7 @@ export default function RoutesScreen() {
     }
 
     await saveSelectedTransitTrip({
+      cityId: selectedCity.id,
       routeId: selectedRoute.id,
       routeName: `${selectedRoute.shortName} ${selectedRoute.longName}`.trim(),
       directionId: selectedDirection.id,
@@ -212,59 +238,83 @@ export default function RoutesScreen() {
   }
 
   function renderItem({ item }: { item: ListItem }) {
-    if (item.type === 'routeSearch') {
-  return (
-    <Card>
-      <Text style={styles.sectionLabel}>
-        {selectedRoute && !isRoutePickerOpen
-          ? 'Linea seleccionada'
-          : 'Buscar linea'}
-      </Text>
-
-      {selectedRoute && !isRoutePickerOpen ? (
-        <>
-          <Text style={styles.selectedRouteTitle}>
-            Linea {selectedRoute.shortName}
-          </Text>
+    if (item.type === 'citySelector') {
+      return (
+        <Card>
+          <Text style={styles.sectionLabel}>Ciudad</Text>
 
           <Text style={styles.description}>
-            {selectedRoute.longName || 'Sin nombre'}
+            Elegi la ciudad donde queres buscar lineas.
           </Text>
 
-          <Pressable
-            style={styles.changeRouteButton}
-            onPress={() => {
-              setIsRoutePickerOpen(true);
-              setSavedMessage('');
-            }}
-          >
-            <Text style={styles.changeRouteButtonText}>Cambiar linea</Text>
-          </Pressable>
-        </>
-      ) : (
-        <>
-          <TextInput
-            value={routeSearch}
-            onChangeText={setRouteSearch}
-            placeholder="Ej: 12, 60, 152..."
-            placeholderTextColor="#6F8193"
-            style={styles.input}
-          />
+          <View style={styles.cityOptions}>
+            {transitCities.map((city) => (
+              <OptionButton
+                key={city.id}
+                label={city.name}
+                selected={selectedCityId === city.id}
+                onPress={() => resetSelectionForCity(city.id)}
+                compact
+              />
+            ))}
+          </View>
+        </Card>
+      );
+    }
 
-          <Text style={styles.helperText}>
-            {normalizeText(routeSearch).length < MIN_ROUTE_SEARCH_LENGTH
-              ? 'Escribi el numero o nombre de una linea para buscar.'
-              : `${matchingRoutes.length} lineas encontradas.`}
+    if (item.type === 'routeSearch') {
+      return (
+        <Card>
+          <Text style={styles.sectionLabel}>
+            {selectedRoute && !isRoutePickerOpen
+              ? 'Linea seleccionada'
+              : `Buscar linea en ${selectedCity.name}`}
           </Text>
-        </>
-      )}
 
-      {isLoadingRoute && (
-        <Text style={styles.loadingText}>Cargando detalle de linea...</Text>
-      )}
-    </Card>
-  );
-  }
+          {selectedRoute && !isRoutePickerOpen ? (
+            <>
+              <Text style={styles.selectedRouteTitle}>
+                Linea {selectedRoute.shortName}
+              </Text>
+
+              <Text style={styles.description}>
+                {selectedRoute.longName || 'Sin nombre'}
+              </Text>
+
+              <Pressable
+                style={styles.changeRouteButton}
+                onPress={() => {
+                  setIsRoutePickerOpen(true);
+                  setSavedMessage('');
+                }}
+              >
+                <Text style={styles.changeRouteButtonText}>Cambiar linea</Text>
+              </Pressable>
+            </>
+          ) : (
+            <>
+              <TextInput
+                value={routeSearch}
+                onChangeText={setRouteSearch}
+                placeholder="Ej: 12, 60, 152..."
+                placeholderTextColor="#6F8193"
+                style={styles.input}
+              />
+
+              <Text style={styles.helperText}>
+                {normalizeText(routeSearch).length < MIN_ROUTE_SEARCH_LENGTH
+                  ? 'Escribi el numero o nombre de una linea para buscar.'
+                  : `${matchingRoutes.length} lineas encontradas.`}
+              </Text>
+            </>
+          )}
+
+          {isLoadingRoute && (
+            <Text style={styles.loadingText}>Cargando detalle de linea...</Text>
+          )}
+        </Card>
+      );
+    }
 
     if (item.type === 'route') {
       const isSelected = item.route.id === selectedRouteId;
@@ -294,7 +344,7 @@ export default function RoutesScreen() {
       return (
         <Card>
           <Text style={styles.description}>
-            Busca una linea para empezar. Por ejemplo: 12, 60, 152.
+            Busca una linea de {selectedCity.name} para empezar.
           </Text>
         </Card>
       );
@@ -304,7 +354,7 @@ export default function RoutesScreen() {
       return (
         <Card>
           <Text style={styles.description}>
-            No encontramos lineas con esa busqueda.
+            No encontramos lineas con esa busqueda en {selectedCity.name}.
           </Text>
         </Card>
       );
@@ -451,6 +501,8 @@ export default function RoutesScreen() {
       <Card>
         <Text style={styles.sectionLabel}>Resumen</Text>
 
+        <Text style={styles.summaryText}>Ciudad: {selectedCity.name}</Text>
+
         {selectedRoute ? (
           <Text style={styles.summaryText}>
             Linea: {selectedRoute.shortName}
@@ -524,7 +576,7 @@ export default function RoutesScreen() {
     return `${item.type}-${index}`;
   }
 
-  if (buenosAiresRouteIndex.length === 0) {
+  if (selectedCity.routeIndex.length === 0) {
     return (
       <View style={styles.centerContainer}>
         <Text style={styles.title}>Lineas</Text>
@@ -532,8 +584,7 @@ export default function RoutesScreen() {
         <Card>
           <Text style={styles.cardTitle}>No hay datos cargados</Text>
           <Text style={styles.description}>
-            Todavia no se procesaron datos GTFS. Ejecuta el script para generar
-            las lineas reales.
+            Todavia no se procesaron datos para {selectedCity.name}.
           </Text>
         </Card>
       </View>
@@ -555,8 +606,8 @@ export default function RoutesScreen() {
         <View style={styles.header}>
           <Text style={styles.title}>Lineas</Text>
           <Text style={styles.subtitle}>
-            Busca una linea, elegi el sentido, selecciona tu parada destino y
-            guarda el viaje.
+            Elegi ciudad, busca una linea, selecciona tu parada destino y guarda
+            el viaje.
           </Text>
         </View>
       }
@@ -646,6 +697,12 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     marginTop: 8,
   },
+  cityOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 14,
+  },
   routeItem: {
     backgroundColor: '#223142',
     borderRadius: 16,
@@ -671,6 +728,20 @@ const styles = StyleSheet.create({
   selectedRouteTitle: {
     color: '#FFFFFF',
     fontSize: 23,
+    fontWeight: '900',
+  },
+  changeRouteButton: {
+    backgroundColor: '#223142',
+    paddingVertical: 12,
+    borderRadius: 16,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#263544',
+    marginTop: 12,
+  },
+  changeRouteButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
     fontWeight: '900',
   },
   directionItem: {
@@ -757,24 +828,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '900',
   },
-
-  changeRouteButton: {
-  backgroundColor: '#223142',
-  paddingVertical: 12,
-  borderRadius: 16,
-  alignItems: 'center',
-  borderWidth: 1,
-  borderColor: '#263544',
-  marginTop: 12,
-},
-changeRouteButtonText: {
-  color: '#FFFFFF',
-  fontSize: 14,
-  fontWeight: '900',
-},
-
   disabledButton: {
     opacity: 0.5,
   },
 });
-
